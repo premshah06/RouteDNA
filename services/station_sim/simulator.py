@@ -16,6 +16,7 @@ import uuid
 import grpc
 
 from packagepb.v1 import common_pb2, ingestion_service_pb2_grpc, scan_event_pb2
+from catalog import Catalog
 from timeutil import now_ts
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -58,15 +59,18 @@ def _make_event(station: int, scanner_id: str, package_id: str) -> scan_event_pb
     return event
 
 
-async def _send_events(call, station: int, scanner_id: str, package_ids: list[str], interval: float, count: int):
+async def _send_events(
+    call, station: int, scanner_id: str, package_ids: list[str], package_items: dict, interval: float, count: int
+):
     for i in range(count):
         package_id = package_ids[i % len(package_ids)]
         event = _make_event(station, scanner_id, package_id)
         await call.write(event)
         logger.info(
-            "sent event_id=%s package_id=%s result=%s",
+            "sent event_id=%s package_id=%s item=%r result=%s",
             event.event_id,
             event.package_id,
+            package_items.get(package_id, "<unknown item>"),
             scan_event_pb2.ScanResult.Name(event.result),
         )
         await asyncio.sleep(interval)
@@ -88,11 +92,28 @@ async def run(host: str, port: int, station_name: str, scanner_id: str, num_pack
     station = _STATION_NAME_TO_ENUM[station_name]
     package_ids = [str(uuid.uuid4()) for _ in range(num_packages)]
 
+    # Associate each simulated package with a real catalog item so
+    # downstream logs/alerts show a human-readable name instead of a
+    # bare package_id. Package itself isn't persisted anywhere yet
+    # (that's Checkpoint 6's job) — this only makes existing log output
+    # legible.
+    catalog = Catalog()
+    try:
+        item_ids = catalog.sample_item_ids(num_packages)
+        package_items = {}
+        for package_id, item_id in zip(package_ids, item_ids):
+            item = catalog.get(item_id)
+            package_items[package_id] = item.name if item else "<unknown item>"
+    finally:
+        catalog.close()
+
     async with grpc.aio.insecure_channel(f"{host}:{port}") as channel:
         stub = ingestion_service_pb2_grpc.IngestionServiceStub(channel)
         call = stub.StreamScans()
 
-        sender = asyncio.create_task(_send_events(call, station, scanner_id, package_ids, interval, count))
+        sender = asyncio.create_task(
+            _send_events(call, station, scanner_id, package_ids, package_items, interval, count)
+        )
         receiver = asyncio.create_task(_receive_instructions(call))
 
         await sender

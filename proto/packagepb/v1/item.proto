@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package packagepb.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/example/thing-transfer/gen/packagepb/v1;packagepbv1";
+
+// Item is catalog/reference data — what a product IS (name, category,
+// unit weight) and how many units currently exist in inventory. This is
+// slowly-changing dimension data, analogous to Package: it is not tied
+// to any single shipment. Package references an item_id (see
+// package.proto) to say "this specific parcel contains N units of this
+// item," which is package-specific fact data and does NOT live here —
+// stock_quantity on this message is the catalog's aggregate count, not
+// any one package's contents.
+message Item {
+  // Stable catalog identifier. Distinct from a package's item reference
+  // the same way Package.package_id is distinct from
+  // Package.tracking_number — this is the internal key everything else
+  // joins on.
+  string item_id = 1;
+
+  // Human-readable product name. This is the whole point of this
+  // message: so operators and the frontend see "Wireless Mouse - Black"
+  // instead of a bare item_id, the same way Package needed more than a
+  // bare package_id.
+  string name = 2;
+
+  // Merchant/catalog-assigned stock keeping unit. Kept separate from
+  // item_id for the same reason Package keeps tracking_number separate
+  // from package_id: SKUs are externally visible and merchant-assigned,
+  // not guaranteed unique across merchants the way our internal
+  // item_id is, and optional (some inbound freight may lack one).
+  string sku = 3;
+
+  ItemCategory category = 4;
+
+  float unit_weight_kg = 5;
+
+  // Aggregate units currently in stock across the whole catalog — NOT
+  // how many are in any particular package (that's
+  // Package.item_quantity). Updated by inventory processes outside this
+  // platform's scope; this platform only reads it for display/context.
+  int64 stock_quantity = 6;
+
+  google.protobuf.Timestamp catalog_updated_at = 7;
+
+  map<string, string> attributes = 8;
+
+  reserved 9 to 11;
+}
+
+enum ItemCategory {
+  ITEM_CATEGORY_UNSPECIFIED = 0;
+  ITEM_CATEGORY_ELECTRONICS = 1;
+  ITEM_CATEGORY_APPAREL = 2;
+  ITEM_CATEGORY_HOME_GOODS = 3;
+  ITEM_CATEGORY_GROCERY = 4;
+  ITEM_CATEGORY_BOOKS_MEDIA = 5;
+  ITEM_CATEGORY_TOYS = 6;
+  ITEM_CATEGORY_HEALTH_BEAUTY = 7;
+  ITEM_CATEGORY_AUTOMOTIVE = 8;
+  ITEM_CATEGORY_OTHER = 9;
+}

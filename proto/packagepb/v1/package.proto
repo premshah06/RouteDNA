@@ -47,7 +47,19 @@ message Package {
   // the package README.
   map<string, string> attributes = 7;
 
-  reserved 8 to 10; // room for near-term typed fields without renumbering 11+
+  reserved 8 to 10; // still off-limits — see proto/README.md rule 1
+
+  // References Item.item_id (item.proto). Package-specific fact —
+  // "this parcel contains item_quantity units of this item" — kept
+  // separate from Item.stock_quantity, which is the catalog's aggregate
+  // count and has nothing to do with any one package. Numbered 11+
+  // rather than reusing the 8-10 reservation above, per this file's own
+  // schema-evolution rule: a reserved number stays reserved even before
+  // a schema ships, so the convention holds from day one.
+  string item_id = 11;
+  int32 item_quantity = 12;
+
+  reserved 13 to 15; // room for near-term typed fields without renumbering 16+
 }
 
 enum HandlingFlag {

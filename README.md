@@ -31,9 +31,11 @@ proto/                       protobuf schema source of truth (buf-managed)
 gen/python/                   generated Python stubs (gitignored, regenerate with codegen.sh)
 services/ingestion/            gRPC server: receives ScanEvents, publishes to Kafka, returns RoutingInstructions
 services/station_sim/          gRPC client: simulates a scan station
+services/common/catalog.py      read-only access to the item catalog (data/catalog.db)
 stream_processing/jobs/         PyFlink jobs (stuck-package detection, journey correlation)
 stream_processing/flink_image/   Dockerfile: Flink + PyFlink + Kafka connector
 docker-compose.yml               local Kafka (KRaft) + Flink cluster
+scripts/seed_catalog.py          generates data/catalog.db (item names/SKUs/stock)
 ```
 
 ## Setup
@@ -42,9 +44,15 @@ docker-compose.yml               local Kafka (KRaft) + Flink cluster
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-./scripts/codegen.sh   # regenerates gen/python/ from proto/
-docker compose up -d   # starts Kafka, creates topics, starts the Flink cluster
+./scripts/codegen.sh          # regenerates gen/python/ from proto/
+python3 scripts/seed_catalog.py  # generates data/catalog.db (50k items by default)
+docker compose up -d          # starts Kafka, creates topics, starts the Flink cluster
 ```
+
+`data/catalog.db` is gitignored (regeneratable, deterministic given the
+same `--seed`) — the station simulator reads it to attach a real item
+name to each simulated package, so log/alert output shows e.g.
+`"Corelume Mechanical Keyboard #23"` instead of a bare `package_id`.
 
 **PyFlink is Docker-only** — it needs a JVM and isn't installed in the
 local venv. Job code lives in `stream_processing/jobs/` but only runs
