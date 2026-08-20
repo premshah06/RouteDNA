@@ -1,3 +1,12 @@
+x-flink-common: &flink-common
+  image: thing-transfer-flink:local
+  environment:
+    FLINK_PROPERTIES: |
+      jobmanager.rpc.address: flink-jobmanager
+  volumes:
+    - ./gen/python:/opt/flink/usrlib/gen/python:ro
+    - ./stream_processing/jobs:/opt/flink/usrlib/jobs:ro
+
 services:
   kafka:
     image: apache/kafka:3.8.0
@@ -32,20 +41,29 @@ services:
     depends_on:
       kafka:
         condition: service_healthy
-    entrypoint:
-      - /opt/kafka/bin/kafka-topics.sh
-      - --bootstrap-server
-      - kafka:19092
-      - --create
-      - --if-not-exists
-      - --topic
-      - scan-events
-      - --partitions
-      - "6"
-      - --replication-factor
-      - "1"
-      - --config
-      - retention.ms=604800000
+    entrypoint: ["/bin/bash", "/scripts/create-topics.sh"]
+    volumes:
+      - ./scripts/create-topics.sh:/scripts/create-topics.sh:ro
+
+  flink-jobmanager:
+    <<: *flink-common
+    build:
+      context: ./stream_processing/flink_image
+    container_name: thing-transfer-flink-jobmanager
+    command: jobmanager
+    ports:
+      - "8081:8081"
+
+  flink-taskmanager:
+    <<: *flink-common
+    container_name: thing-transfer-flink-taskmanager
+    command: taskmanager
+    depends_on:
+      - flink-jobmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 2
 
 volumes:
   kafka-data:

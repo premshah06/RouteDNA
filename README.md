@@ -13,6 +13,10 @@ before they become customer-facing failures.
 - **Checkpoint 3** (done): ingestion service publishes validated ScanEvents
   to Kafka (`scan-events` topic, keyed by `package_id`), decoupled from the
   gRPC routing response. Local Kafka via `docker-compose.yml`.
+- **Checkpoint 4** (done): PyFlink job (`stream_processing/jobs/stuck_package_detector.py`)
+  flags packages with no scan for 10+ minutes, publishing `Alert` protos to
+  a new `alerts` topic. Local Flink cluster (JobManager + TaskManager) via
+  `docker-compose.yml`. Job submission is a manual step for now — see below.
 
 ## Architecture
 
@@ -23,11 +27,13 @@ Published copy: https://claude.ai/code/artifact/42406ee7-f0b6-4949-8870-116059d9
 ## Layout
 
 ```
-proto/                  protobuf schema source of truth (buf-managed)
-gen/python/              generated Python stubs (gitignored, regenerate with codegen.sh)
-services/ingestion/       gRPC server: receives ScanEvents, publishes to Kafka, returns RoutingInstructions
-services/station_sim/     gRPC client: simulates a scan station
-docker-compose.yml         local Kafka (KRaft mode, single broker)
+proto/                       protobuf schema source of truth (buf-managed)
+gen/python/                   generated Python stubs (gitignored, regenerate with codegen.sh)
+services/ingestion/            gRPC server: receives ScanEvents, publishes to Kafka, returns RoutingInstructions
+services/station_sim/          gRPC client: simulates a scan station
+stream_processing/jobs/         PyFlink jobs (stuck-package detection, journey correlation)
+stream_processing/flink_image/   Dockerfile: Flink + PyFlink + Kafka connector
+docker-compose.yml               local Kafka (KRaft) + Flink cluster
 ```
 
 ## Setup
@@ -37,7 +43,35 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ./scripts/codegen.sh   # regenerates gen/python/ from proto/
-docker compose up -d   # starts Kafka and creates the scan-events topic
+docker compose up -d   # starts Kafka, creates topics, starts the Flink cluster
+```
+
+**PyFlink is Docker-only** — it needs a JVM and isn't installed in the
+local venv. Job code lives in `stream_processing/jobs/` but only runs
+inside the `thing-transfer-flink` image (built automatically by
+`docker compose up`).
+
+## Submitting the stuck-package detector
+
+`docker compose up` starts an empty Flink cluster — the job itself is a
+manual submission step for now (auto-submission via a one-shot container
+hit a Flink CLI/RPC hang not worth blocking on; see git history for the
+investigation):
+
+```bash
+docker compose exec flink-jobmanager \
+  /opt/flink/bin/flink run -d -py /opt/flink/usrlib/jobs/stuck_package_detector.py
+```
+
+Check it's running: `docker compose exec flink-jobmanager /opt/flink/bin/flink list`
+Flink Web UI: http://localhost:8081
+
+Override thresholds for faster local testing (defaults: 10 min stuck
+threshold, 60s idle-partition timeout):
+
+```bash
+docker compose exec -e STUCK_THRESHOLD_MS=15000 -e IDLE_PARTITION_TIMEOUT_MS=10000 \
+  flink-jobmanager /opt/flink/bin/flink run -d -py /opt/flink/usrlib/jobs/stuck_package_detector.py
 ```
 
 ## Running the Checkpoint 3 demo
@@ -80,3 +114,27 @@ end-to-end streaming tests (real `grpc.aio` server/client pair on an
 ephemeral port, fake in-memory Kafka producer). `test_kafka_integration.py`
 is marked `kafka` and excluded by default; it exercises the real broker —
 produce via gRPC, consume back, decode, and verify.
+
+Flink job tests (needs pyflink, which only exists inside the Docker
+image — see `scripts/run_flink_tests.sh`):
+
+```bash
+./scripts/run_flink_tests.sh
+```
+
+## Reading alerts
+
+```bash
+docker exec thing-transfer-kafka /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server localhost:9092 --topic alerts --from-beginning
+```
+
+Values are base64-encoded `Alert` protos (see
+`services/ingestion/kafka_producer.py` docstring for why) — decode with:
+
+```python
+import base64, sys
+sys.path.insert(0, "gen/python")
+from packagepb.v1 import alert_pb2
+alert_pb2.Alert.FromString(base64.b64decode(line))
+```

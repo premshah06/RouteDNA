@@ -5,6 +5,7 @@ suite doesn't require Docker. Run explicitly with:
     pytest services/ingestion/tests/test_kafka_integration.py -v
 """
 
+import base64
 import sys
 import uuid
 from pathlib import Path
@@ -87,7 +88,10 @@ async def test_published_event_is_readable_from_kafka(running_server_with_real_k
                 break
 
         assert found is not None, "published event was not observed on the scan-events topic"
-        decoded = scan_event_pb2.ScanEvent.FromString(found.value)
+        # values are base64-encoded protobuf bytes on the wire (see
+        # kafka_producer.py) so PyFlink's SimpleStringSchema can read
+        # them without a custom raw-bytes deserialization schema.
+        decoded = scan_event_pb2.ScanEvent.FromString(base64.b64decode(found.value))
         assert decoded.event_id == event_id
         assert decoded.package_id == package_id
     finally:

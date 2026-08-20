@@ -13,8 +13,16 @@ and gives no per-package ordering guarantee at all. Partitioning by
 event_id (effectively random) would maximize spread but destroys the
 per-package ordering guarantee entirely. package_id is the only key that
 serves the actual downstream consumer.
+
+Wire encoding: values are base64-encoded protobuf bytes, not raw bytes.
+PyFlink 1.19's DataStream Kafka connector has no built-in raw-byte-array
+(de)serialization schema without writing custom Java, but ships
+SimpleStringSchema (UTF-8 strings) natively — base64 lets the Flink jobs
+(stream_processing/jobs/) use that directly instead of maintaining a
+custom JAR. ~33% wire overhead, accepted for local-dev scale.
 """
 
+import base64
 import logging
 
 from aiokafka import AIOKafkaProducer
@@ -35,6 +43,7 @@ class ScanEventProducer:
             acks="all",
             enable_idempotence=True,
             key_serializer=lambda k: k.encode("utf-8"),
+            value_serializer=lambda v: base64.b64encode(v),
         )
         await self._producer.start()
         logger.info("kafka producer connected to %s", self._bootstrap_servers)
@@ -45,5 +54,9 @@ class ScanEventProducer:
             logger.info("kafka producer stopped")
 
     async def publish(self, package_id: str, event_bytes: bytes) -> None:
+        """event_bytes is the raw protobuf-serialized message; base64
+        encoding onto the wire happens in value_serializer above, kept
+        out of caller code (server.py) so the encoding lives in exactly
+        one place."""
         assert self._producer is not None, "call start() before publish()"
         await self._producer.send_and_wait(TOPIC, value=event_bytes, key=package_id)
