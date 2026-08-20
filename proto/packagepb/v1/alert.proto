@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+package packagepb.v1;
+
+import "packagepb/v1/common.proto";
+import "packagepb/v1/scan_event.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/example/thing-transfer/gen/packagepb/v1;packagepbv1";
+
+// Alert is the output of stream processing (Checkpoints 4-5) and the
+// message the frontend's live view subscribes to via the Checkpoint 7
+// server-streaming service. Unlike ScanEvent (a raw fact) or
+// RoutingInstruction (a control command), Alert is a derived judgment:
+// "something here needs a human's attention." Every alert type this
+// system produces maps to one of the three failure modes this whole
+// platform exists to catch: damage, stuck packages, misrouting.
+message Alert {
+  string alert_id = 1;
+
+  string package_id = 2;
+
+  AlertType alert_type = 3;
+
+  Severity severity = 4;
+
+  // Human-readable explanation, always populated regardless of alert_type
+  // (e.g. "Package stuck at SORT_A for 14m, threshold is 10m"). Machine-
+  // readable specifics live in the type-specific detail fields below.
+  string message = 5;
+
+  // Station the alert concerns, when applicable (e.g. where a package got
+  // stuck, or where damage was scanned). Left UNSPECIFIED for alert types
+  // that aren't tied to a single station (e.g. a full-journey misrouting
+  // alert that spans multiple stations).
+  StationType station = 6;
+
+  google.protobuf.Timestamp detected_at = 7;
+
+  // Only one of these is meaningfully populated, chosen by alert_type.
+  // Modeled as a oneof rather than three separately-optional messages so
+  // it's structurally clear (and enforceable at the proto level in
+  // languages with oneof-aware tooling) that exactly one detail variant
+  // applies per alert — adding a new alert type later means adding a new
+  // oneof branch, not guessing which combination of optional fields is
+  // valid.
+  oneof detail {
+    StuckDetail stuck_detail = 8;
+    DamageDetail damage_detail = 9;
+    MisroutingDetail misrouting_detail = 10;
+  }
+
+  map<string, string> attributes = 11;
+
+  reserved 12 to 14;
+}
+
+enum AlertType {
+  ALERT_TYPE_UNSPECIFIED = 0;
+  ALERT_TYPE_STUCK_PACKAGE = 1;
+  ALERT_TYPE_DAMAGE = 2;
+  ALERT_TYPE_MISROUTING = 3;
+}
+
+enum Severity {
+  SEVERITY_UNSPECIFIED = 0;
+  SEVERITY_INFO = 1;
+  SEVERITY_WARNING = 2;
+  SEVERITY_CRITICAL = 3;
+}
+
+// Checkpoint 4: simplest anomaly. Emitted when time since a package's
+// last scan exceeds a per-station threshold with no subsequent scan
+// arriving.
+message StuckDetail {
+  google.protobuf.Timestamp last_scan_at = 1;
+  int32 stuck_duration_seconds = 2;
+  int32 threshold_seconds = 3;
+}
+
+// Emitted by the same scan pipeline that produces ScanEvent.damage_assessment,
+// but promoted to an Alert once confidence clears the alerting threshold —
+// keeps "we observed possible damage" (ScanEvent) separate from
+// "this needs a human now" (Alert), since not every low-confidence
+// observation should page anyone.
+message DamageDetail {
+  DamageType damage_type = 1;
+  float confidence = 2;
+  string image_ref = 3;
+}
+
+// Checkpoint 5: the hard one. Emitted by the journey correlation job when
+// a package's reconstructed path diverges from its expected path (e.g.
+// scanned at Sort B when destination_facility_code routes through Sort A
+// only, or a station was skipped entirely).
+message MisroutingDetail {
+  StationType expected_station = 1;
+  StationType actual_station = 2;
+  // Full sequence of stations visited so far, in scan order, as
+  // reconstructed by the journey correlation job. Included so the
+  // frontend/operator doesn't need a second query to see the path that
+  // led to this alert.
+  repeated StationType path_so_far = 3;
+}

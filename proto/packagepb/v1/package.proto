@@ -1,0 +1,59 @@
+syntax = "proto3";
+
+package packagepb.v1;
+
+import "packagepb/v1/common.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/example/thing-transfer/gen/packagepb/v1;packagepbv1";
+
+// Package is the master record for a physical item moving through the
+// facility. It is created once at Intake and referenced (never duplicated)
+// by every downstream ScanEvent, RoutingInstruction, and Alert via
+// package_id. Treat this as slowly-changing dimension data: it describes
+// what the package IS, not what's HAPPENING to it (that's ScanEvent).
+message Package {
+  // Stable identifier for the package's entire journey through the
+  // facility. Generated once at Intake (UUIDv7 recommended so IDs sort
+  // roughly by creation time, which helps range-scan queries on the lake).
+  // This is the join key for Checkpoint 5's journey correlation.
+  string package_id = 1;
+
+  // Carrier-provided tracking number, distinct from package_id. Kept
+  // separate because it's optional (not all inbound freight has one at
+  // Intake time), externally visible (appears in customer-facing systems),
+  // and not guaranteed unique across carriers the way our internal
+  // package_id is.
+  string tracking_number = 2;
+
+  Dimensions dimensions = 3;
+
+  // Declared/expected final destination, known from the shipping label at
+  // Intake. This is the "should be" against which RoutingInstructions and
+  // misrouting Alerts are evaluated.
+  string destination_facility_code = 4;
+
+  google.protobuf.Timestamp intake_at = 5;
+
+  // Fragile/hazmat/etc. handling flags. A repeated enum rather than a
+  // single field because a package can carry multiple simultaneous
+  // handling requirements (e.g. FRAGILE + THIS_SIDE_UP).
+  repeated HandlingFlag handling_flags = 6;
+
+  // Open extension point for low-priority, loosely-typed attributes
+  // (e.g. customer_id, order_ref, warehouse_zone) that don't yet justify
+  // a dedicated typed field. Promote a key to a real field once it's used
+  // in filtering/joins/business logic — see the schema evolution note in
+  // the package README.
+  map<string, string> attributes = 7;
+
+  reserved 8 to 10; // room for near-term typed fields without renumbering 11+
+}
+
+enum HandlingFlag {
+  HANDLING_FLAG_UNSPECIFIED = 0;
+  HANDLING_FLAG_FRAGILE = 1;
+  HANDLING_FLAG_HAZMAT = 2;
+  HANDLING_FLAG_THIS_SIDE_UP = 3;
+  HANDLING_FLAG_OVERSIZED = 4;
+}

@@ -1,0 +1,92 @@
+syntax = "proto3";
+
+package packagepb.v1;
+
+import "packagepb/v1/common.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/example/thing-transfer/gen/packagepb/v1;packagepbv1";
+
+// ScanEvent is the fact record emitted every time a station scans a
+// package. This is the highest-volume message in the system: it's what
+// station simulators stream over gRPC (Checkpoint 2), what gets published
+// to Kafka (Checkpoint 3), and the sole input to both anomaly detection
+// jobs (Checkpoints 4-5). Every field here earns its place because it's
+// on the hot path.
+message ScanEvent {
+  // Unique per physical scan (not per package). Required for idempotent
+  // Kafka production/consumption: a station simulator or gRPC client that
+  // retries a send after a timeout must resend the same event_id so
+  // downstream consumers can dedupe rather than double-count a scan.
+  // UUIDv7 recommended, same rationale as Package.package_id.
+  string event_id = 1;
+
+  string package_id = 2;
+
+  StationType station = 3;
+
+  // Physical scanner unit within the station (a station may have multiple
+  // scan heads/lanes). Kept as a plain string rather than an enum because
+  // station hardware inventory changes independently of this schema and
+  // shouldn't require a proto release to add a new scanner ID.
+  string scanner_id = 4;
+
+  // When the scan physically happened, per the station's clock. This is
+  // the event-time field that Checkpoint 5's windowing/watermarking logic
+  // uses — distinct from Kafka's own ingestion timestamp, because
+  // network/processing delay means those can diverge, and out-of-order
+  // arrival is exactly the case journey correlation has to handle.
+  google.protobuf.Timestamp scanned_at = 5;
+
+  ScanResult result = 6;
+
+  // Populated only when result == SCAN_RESULT_DAMAGE_DETECTED. Kept as a
+  // nested message rather than flattening confidence/damage_type onto
+  // ScanEvent directly, so the common (non-damage) case doesn't carry
+  // always-empty fields, and so damage-detection-specific fields can
+  // evolve without touching the envelope every other consumer reads.
+  DamageAssessment damage_assessment = 7;
+
+  // Free-form scanner/station metadata (firmware version, lane number,
+  // image reference, etc.) that's useful for debugging but not yet
+  // load-bearing for routing or alerting logic. Same rationale as
+  // Package.attributes.
+  map<string, string> attributes = 8;
+
+  reserved 9 to 12;
+}
+
+enum ScanResult {
+  SCAN_RESULT_UNSPECIFIED = 0;
+  SCAN_RESULT_OK = 1;
+  SCAN_RESULT_DAMAGE_DETECTED = 2;
+  // Scanner read the package but couldn't resolve a package_id (e.g.
+  // barcode unreadable). Distinct from OK/DAMAGE so these can be routed
+  // to manual review rather than silently dropped or misjoined onto the
+  // wrong package.
+  SCAN_RESULT_UNREADABLE = 3;
+}
+
+message DamageAssessment {
+  DamageType damage_type = 1;
+
+  // Model/sensor confidence in [0.0, 1.0]. A float rather than an enum
+  // (e.g. LOW/MED/HIGH) because downstream alerting thresholds
+  // (Checkpoint 4+) are likely to be tuned numerically, and bucketing
+  // early would throw away information a threshold change might need.
+  float confidence = 2;
+
+  // Reference (e.g. object storage key) to a captured image of the
+  // damage, if the station has imaging capability. Optional: not every
+  // station/scanner has a camera.
+  string image_ref = 3;
+}
+
+enum DamageType {
+  DAMAGE_TYPE_UNSPECIFIED = 0;
+  DAMAGE_TYPE_CRUSHED = 1;
+  DAMAGE_TYPE_TORN = 2;
+  DAMAGE_TYPE_WET = 3;
+  DAMAGE_TYPE_LEAKING = 4;
+  DAMAGE_TYPE_OTHER = 5;
+}

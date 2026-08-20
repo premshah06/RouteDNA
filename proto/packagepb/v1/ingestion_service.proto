@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package packagepb.v1;
+
+import "packagepb/v1/scan_event.proto";
+import "packagepb/v1/routing_instruction.proto";
+
+option go_package = "github.com/example/thing-transfer/gen/packagepb/v1;packagepbv1";
+
+// IngestionService is what each scan station connects to. One station
+// opens exactly one bidirectional stream for the lifetime of its
+// connection: it sends a ScanEvent every time it scans a package, and
+// receives a RoutingInstruction back on the same stream telling it what
+// to do with that package next. Checkpoint 2 proves this contract works
+// end to end with no Kafka/storage behind it; Checkpoint 3 adds Kafka
+// publication as a side effect of the same RPC without changing this
+// contract.
+service IngestionService {
+  rpc StreamScans(stream ScanEvent) returns (stream RoutingInstruction);
+}

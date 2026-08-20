@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package packagepb.v1;
+
+import "packagepb/v1/common.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/example/thing-transfer/gen/packagepb/v1;packagepbv1";
+
+// RoutingInstruction is sent by the ingestion service back down the same
+// bidirectional gRPC stream a station used to report a ScanEvent
+// (Checkpoint 2). It tells the physical sort mechanism at that station
+// what to do with the package that was just scanned. This is a
+// low-latency control-plane message, not an analytics record — it must
+// resolve synchronously within the stream's round trip, so it stays
+// deliberately small.
+message RoutingInstruction {
+  // Correlates this instruction back to the ScanEvent that triggered it,
+  // so the station (and any tracing/debugging) can match request to
+  // response on a stream carrying many concurrent packages.
+  string in_response_to_event_id = 1;
+
+  string package_id = 2;
+
+  RoutingAction action = 3;
+
+  // Physical sort lane/chute identifier at the current station, populated
+  // when action == ROUTING_ACTION_PROCEED or REROUTE. String rather than
+  // enum for the same reason as ScanEvent.scanner_id: lane inventory is a
+  // hardware concern, not a schema concern.
+  string next_lane_id = 4;
+
+  // Next station in the package's path. Lets the station's local display
+  // / simulation show "-> Sort B" without a second lookup, and gives the
+  // frontend (Checkpoint 7) a direct field to render instead of
+  // re-deriving it from routing topology.
+  StationType next_station = 5;
+
+  // Populated when action == ROUTING_ACTION_HOLD or FLAG_FOR_REVIEW, a
+  // short human-readable reason (e.g. "damage confidence 0.92 exceeds
+  // threshold"). Not meant to be parsed by machines — see Alert for the
+  // structured version of this.
+  string reason = 6;
+
+  google.protobuf.Timestamp issued_at = 7;
+
+  reserved 8 to 10;
+}
+
+enum RoutingAction {
+  ROUTING_ACTION_UNSPECIFIED = 0;
+  // Send to next_lane_id / next_station as normal.
+  ROUTING_ACTION_PROCEED = 1;
+  // Divert from the package's originally expected path (e.g. damage
+  // detected, needs manual inspection lane instead of continuing to
+  // Sort B).
+  ROUTING_ACTION_REROUTE = 2;
+  // Physically stop the package at this station; do not release to any
+  // lane until a human/system clears it.
+  ROUTING_ACTION_HOLD = 3;
+  // Proceed normally, but also surface for human review (non-blocking,
+  // unlike HOLD).
+  ROUTING_ACTION_FLAG_FOR_REVIEW = 4;
+}
