@@ -14,6 +14,12 @@ before they become customer-facing failures.
   to Kafka (`scan-events` topic, keyed by `package_id`), decoupled from the
   gRPC routing response. Local Kafka via `docker-compose.yml`.
 
+## Architecture
+
+Hand-drawn pipeline diagram (open `docs/architecture.html` in a browser):
+current gRPC + Kafka flow, plus what's designed but not yet built.
+Published copy: https://claude.ai/code/artifact/42406ee7-f0b6-4949-8870-116059d91b76
+
 ## Layout
 
 ```

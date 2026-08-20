@@ -1,0 +1,451 @@
+<title>Facility Pipeline Manifest</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Kalam:wght@400;700&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  :root {
+    --ground: #F2E9D8;
+    --ground-2: #EADFC8;
+    --ink: #2B2620;
+    --ink-soft: #55493A;
+    --amber: #C96A1F;
+    --amber-deep: #A8531A;
+    --teal: #2F6B65;
+    --red: #B23F30;
+    --paper-line: #D8C9A8;
+    --card: #FBF5E7;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #1E1A14;
+      --ground-2: #262019;
+      --ink: #EDE3CE;
+      --ink-soft: #C9BBA0;
+      --amber: #E8873A;
+      --amber-deep: #F0A05C;
+      --teal: #5FADA5;
+      --red: #E07A68;
+      --paper-line: #3A3226;
+      --card: #26201A;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #1E1A14;
+    --ground-2: #262019;
+    --ink: #EDE3CE;
+    --ink-soft: #C9BBA0;
+    --amber: #E8873A;
+    --amber-deep: #F0A05C;
+    --teal: #5FADA5;
+    --red: #E07A68;
+    --paper-line: #3A3226;
+    --card: #26201A;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: 'Kalam', 'Segoe Print', cursive;
+    margin: 0;
+    padding: clamp(20px, 4vw, 56px);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(circle at 8% 12%, var(--ground-2) 0%, transparent 40%),
+      radial-gradient(circle at 92% 88%, var(--ground-2) 0%, transparent 45%);
+  }
+
+  .sheet {
+    max-width: 1180px;
+    margin: 0 auto;
+    position: relative;
+  }
+
+  .stamp-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+
+  .stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    border: 3px solid var(--red);
+    color: var(--red);
+    padding: 6px 16px;
+    border-radius: 3px;
+    transform: rotate(-3deg);
+    font-family: 'Kalam', cursive;
+    font-weight: 700;
+    font-size: 1.05rem;
+    letter-spacing: 0.04em;
+  }
+
+  .stamp .dot {
+    width: 9px; height: 9px;
+    border-radius: 50%;
+    background: var(--red);
+  }
+
+  h1 {
+    font-family: 'Kalam', cursive;
+    font-weight: 700;
+    font-size: clamp(2.1rem, 4.6vw, 3.4rem);
+    margin: 0 0 2px 0;
+    line-height: 1.05;
+    text-wrap: balance;
+  }
+
+  .subhead {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin: 0 0 28px 0;
+  }
+
+  .checkpoint-strip {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 36px;
+  }
+
+  .chip {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.03em;
+    padding: 5px 12px 6px;
+    border: 2px solid var(--ink);
+    border-radius: 20px;
+    background: var(--card);
+    white-space: nowrap;
+  }
+  .chip.done { border-color: var(--teal); color: var(--teal); }
+  .chip.now { border-color: var(--amber-deep); color: var(--amber-deep); background: var(--card); font-weight: 700; }
+  .chip.next { opacity: 0.55; border-style: dashed; }
+
+  figure {
+    margin: 0 0 34px 0;
+    border: 3px solid var(--ink);
+    border-radius: 6px;
+    background: var(--card);
+    padding: clamp(14px, 2.4vw, 30px) clamp(10px, 2vw, 26px) 18px;
+    position: relative;
+    box-shadow: 5px 6px 0 0 var(--paper-line);
+  }
+
+  figure svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+
+  figcaption {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.78rem;
+    color: var(--ink-soft);
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 2px dashed var(--paper-line);
+    line-height: 1.6;
+  }
+
+  figcaption b { color: var(--ink); font-weight: 700; }
+
+  .legend {
+    display: flex;
+    gap: 22px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.74rem;
+    color: var(--ink-soft);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .legend .swatch { width: 22px; height: 4px; border-radius: 2px; display: inline-block; }
+
+  .notes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    margin-top: 8px;
+  }
+
+  .note {
+    background: var(--card);
+    border: 2px solid var(--ink);
+    border-radius: 4px;
+    padding: 16px 18px;
+    position: relative;
+  }
+  .note::before {
+    content: "";
+    position: absolute;
+    top: -9px;
+    left: 22px;
+    width: 34px;
+    height: 14px;
+    background: var(--amber);
+    opacity: 0.55;
+    transform: rotate(-4deg);
+    border-radius: 2px;
+  }
+  .note h3 {
+    font-family: 'Kalam', cursive;
+    font-size: 1.15rem;
+    margin: 6px 0 8px 0;
+  }
+  .note p {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.76rem;
+    line-height: 1.65;
+    color: var(--ink-soft);
+    margin: 0;
+  }
+  .note p code {
+    background: var(--ground-2);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--ink);
+  }
+
+  footer {
+    margin-top: 40px;
+    text-align: center;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--ink-soft);
+    letter-spacing: 0.04em;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .flow-dash { animation: dashmove 22s linear infinite; }
+  }
+  @keyframes dashmove { to { stroke-dashoffset: -400; } }
+</style>
+
+<div class="sheet">
+
+  <div class="stamp-row">
+    <div>
+      <h1>Facility Pipeline Manifest</h1>
+      <p class="subhead">Smart Package Routing &amp; Damage Detection — Checkpoint 3 of 9</p>
+    </div>
+    <div class="stamp"><span class="dot"></span>HANDLE&nbsp;WITH&nbsp;CARE</div>
+  </div>
+
+  <div class="checkpoint-strip">
+    <span class="chip done">CP1 · protobuf contracts</span>
+    <span class="chip done">CP2 · gRPC streaming</span>
+    <span class="chip now">CP3 · Kafka ✓ you are here</span>
+    <span class="chip next">CP4 · stuck-package detection</span>
+    <span class="chip next">CP5 · journey correlation</span>
+    <span class="chip next">CP6 · lake + warehouse</span>
+    <span class="chip next">CP7 · live alerts + UI</span>
+  </div>
+
+  <figure>
+    <svg viewBox="0 0 1120 480" role="img" aria-label="Four scan stations stream ScanEvents over one bidirectional gRPC connection each to the ingestion service, which synchronously returns a RoutingInstruction on the same stream and, as a decoupled side effect, publishes the validated event to the Kafka scan-events topic keyed by package_id, landing in one of six partitions so every event for one package stays in order on the same partition.">
+
+      <!-- grid guide, very faint -->
+      <defs>
+        <marker id="arrowAmber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--amber-deep)"></path>
+        </marker>
+        <marker id="arrowInk" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--ink)"></path>
+        </marker>
+        <marker id="arrowTeal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="var(--teal)"></path>
+        </marker>
+      </defs>
+
+      <!-- ===== four station crates, left column ===== -->
+      <!-- Intake -->
+      <g font-family="Kalam, cursive">
+        <g transform="translate(30,30)">
+          <rect x="0" y="0" width="150" height="72" rx="5" fill="none" stroke="var(--ink)" stroke-width="2.6" transform="rotate(-0.6 75 36)"></rect>
+          <line x1="10" y1="18" x2="140" y2="18" stroke="var(--ink)" stroke-width="1.4" opacity="0.35"></line>
+          <text x="75" y="34" text-anchor="middle" font-size="19" fill="var(--ink)" font-weight="700">Intake</text>
+          <text x="75" y="56" text-anchor="middle" font-family="Space Mono, monospace" font-size="10.5" fill="var(--ink-soft)">station_sim.py</text>
+        </g>
+
+        <g transform="translate(30,140)">
+          <rect x="0" y="0" width="150" height="72" rx="5" fill="none" stroke="var(--ink)" stroke-width="2.6" transform="rotate(0.5 75 36)"></rect>
+          <line x1="10" y1="18" x2="140" y2="18" stroke="var(--ink)" stroke-width="1.4" opacity="0.35"></line>
+          <text x="75" y="34" text-anchor="middle" font-size="19" fill="var(--ink)" font-weight="700">Sort A</text>
+          <text x="75" y="56" text-anchor="middle" font-family="Space Mono, monospace" font-size="10.5" fill="var(--ink-soft)">station_sim.py</text>
+        </g>
+
+        <g transform="translate(30,250)">
+          <rect x="0" y="0" width="150" height="72" rx="5" fill="none" stroke="var(--ink)" stroke-width="2.6" transform="rotate(-0.4 75 36)"></rect>
+          <line x1="10" y1="18" x2="140" y2="18" stroke="var(--ink)" stroke-width="1.4" opacity="0.35"></line>
+          <text x="75" y="34" text-anchor="middle" font-size="19" fill="var(--ink)" font-weight="700">Sort B</text>
+          <text x="75" y="56" text-anchor="middle" font-family="Space Mono, monospace" font-size="10.5" fill="var(--ink-soft)">station_sim.py</text>
+        </g>
+
+        <g transform="translate(30,360)">
+          <rect x="0" y="0" width="150" height="72" rx="5" fill="none" stroke="var(--ink)" stroke-width="2.6" transform="rotate(0.6 75 36)"></rect>
+          <line x1="10" y1="18" x2="140" y2="18" stroke="var(--ink)" stroke-width="1.4" opacity="0.35"></line>
+          <text x="75" y="34" text-anchor="middle" font-size="19" fill="var(--ink)" font-weight="700">Dispatch</text>
+          <text x="75" y="56" text-anchor="middle" font-family="Space Mono, monospace" font-size="10.5" fill="var(--ink-soft)">station_sim.py</text>
+        </g>
+      </g>
+
+      <!-- ===== bidirectional gRPC lines: 4 stations -> ingestion ===== -->
+      <g stroke="var(--ink)" stroke-width="2.2" fill="none" stroke-linecap="round">
+        <path d="M182,58 C 260,58 260,170 340,190" marker-end="url(#arrowInk)"></path>
+        <path d="M182,168 C 260,168 260,195 338,208" marker-end="url(#arrowInk)"></path>
+        <path d="M182,278 C 260,278 260,235 338,222" marker-end="url(#arrowInk)"></path>
+        <path d="M182,388 C 260,388 260,250 340,232" marker-end="url(#arrowInk)"></path>
+      </g>
+      <text x="248" y="140" font-family="Space Mono, monospace" font-size="10.5" fill="var(--ink-soft)" text-anchor="middle" transform="rotate(-14 248 140)">4x StreamScans()</text>
+      <text x="248" y="152" font-family="Space Mono, monospace" font-size="9.5" fill="var(--ink-soft)" text-anchor="middle" transform="rotate(-14 248 152)">bidi gRPC, one per station</text>
+
+      <!-- ===== ingestion service crate ===== -->
+      <g transform="translate(345,150)" font-family="Kalam, cursive">
+        <rect x="0" y="0" width="190" height="130" rx="6" fill="none" stroke="var(--ink)" stroke-width="3" transform="rotate(-0.3 95 65)"></rect>
+        <rect x="8" y="8" width="174" height="114" rx="4" fill="none" stroke="var(--ink)" stroke-width="1.2" stroke-dasharray="1 5" opacity="0.5"></rect>
+        <text x="95" y="34" text-anchor="middle" font-size="20" font-weight="700" fill="var(--ink)">Ingestion</text>
+        <text x="95" y="53" text-anchor="middle" font-family="Space Mono, monospace" font-size="10" fill="var(--ink-soft)">grpc.aio server :50051</text>
+
+        <text x="16" y="76" font-family="Space Mono, monospace" font-size="9.5" fill="var(--ink-soft)">1. is_valid(event)?</text>
+        <text x="16" y="90" font-family="Space Mono, monospace" font-size="9.5" fill="var(--ink-soft)">2. route_for() -&gt; RoutingInstruction</text>
+        <text x="16" y="104" font-family="Space Mono, monospace" font-size="9.5" fill="var(--amber-deep)" font-weight="700">3. publish() -&gt; kafka (async, non-blocking)</text>
+      </g>
+
+      <!-- routing instruction back to stations -->
+      <path d="M345,178 C 280,120 220,90 182,60" fill="none" stroke="var(--ink)" stroke-width="1.6" stroke-dasharray="5 4" opacity="0.6" marker-end="url(#arrowInk)"></path>
+      <text x="255" y="82" font-family="Space Mono, monospace" font-size="9.5" fill="var(--ink-soft)" text-anchor="middle" transform="rotate(-24 255 82)">RoutingInstruction ⤶</text>
+
+      <!-- ===== amber kafka spine ===== -->
+      <path class="flow-dash" d="M540,215 C 610,215 610,215 660,215" fill="none" stroke="var(--amber-deep)" stroke-width="3.4" stroke-dasharray="10 8" marker-end="url(#arrowAmber)"></path>
+      <text x="600" y="200" text-anchor="middle" font-family="Space Mono, monospace" font-size="10" fill="var(--amber-deep)" font-weight="700">key = package_id</text>
+
+      <!-- kafka topic block: 6 partitions -->
+      <g transform="translate(665,110)">
+        <rect x="0" y="0" width="210" height="210" rx="6" fill="none" stroke="var(--amber-deep)" stroke-width="3" stroke-dasharray="2 0" transform="rotate(0.3 105 105)"></rect>
+        <text x="105" y="26" text-anchor="middle" font-family="Kalam, cursive" font-size="18" font-weight="700" fill="var(--amber-deep)">scan-events</text>
+        <text x="105" y="42" text-anchor="middle" font-family="Space Mono, monospace" font-size="9.5" fill="var(--ink-soft)">Kafka topic · 6 partitions</text>
+
+        <!-- 6 partition lanes -->
+        <g font-family="Space Mono, monospace" font-size="9" fill="var(--ink-soft)">
+          <g transform="translate(14,54)">
+            <rect x="0" y="0" width="182" height="20" rx="3" fill="var(--ground-2)" stroke="var(--ink)" stroke-width="1"></rect>
+            <text x="8" y="14">p0</text>
+            <circle cx="40" cy="10" r="3" fill="var(--teal)"></circle>
+            <circle cx="54" cy="10" r="3" fill="var(--teal)"></circle>
+          </g>
+          <g transform="translate(14,80)">
+            <rect x="0" y="0" width="182" height="20" rx="3" fill="var(--ground-2)" stroke="var(--ink)" stroke-width="1"></rect>
+            <text x="8" y="14">p1</text>
+            <circle cx="40" cy="10" r="3" fill="var(--teal)"></circle>
+          </g>
+          <g transform="translate(14,106)">
+            <rect x="0" y="0" width="182" height="20" rx="3" fill="var(--ground-2)" stroke="var(--ink)" stroke-width="1"></rect>
+            <text x="8" y="14">p2</text>
+            <circle cx="40" cy="10" r="3" fill="var(--teal)"></circle>
+            <circle cx="54" cy="10" r="3" fill="var(--teal)"></circle>
+            <circle cx="68" cy="10" r="3" fill="var(--teal)"></circle>
+          </g>
+          <g transform="translate(14,132)">
+            <rect x="0" y="0" width="182" height="20" rx="3" fill="var(--ground-2)" stroke="var(--ink)" stroke-width="1"></rect>
+            <text x="8" y="14">p3</text>
+          </g>
+          <g transform="translate(14,158)">
+            <rect x="0" y="0" width="182" height="20" rx="3" fill="var(--ground-2)" stroke="var(--ink)" stroke-width="1"></rect>
+            <text x="8" y="14">p4</text>
+            <circle cx="40" cy="10" r="3" fill="var(--teal)"></circle>
+          </g>
+          <g transform="translate(14,184)">
+            <rect x="0" y="0" width="182" height="20" rx="3" fill="var(--ground-2)" stroke="var(--ink)" stroke-width="1"></rect>
+            <text x="8" y="14">p5</text>
+            <circle cx="40" cy="10" r="3" fill="var(--teal)"></circle>
+            <circle cx="54" cy="10" r="3" fill="var(--teal)"></circle>
+          </g>
+        </g>
+      </g>
+
+      <!-- downstream, dashed = not built yet -->
+      <path d="M880,215 C 930,215 930,215 960,215" fill="none" stroke="var(--ink)" stroke-width="2" stroke-dasharray="3 5" opacity="0.55" marker-end="url(#arrowInk)"></path>
+
+      <g transform="translate(962,120)" opacity="0.6">
+        <rect x="0" y="0" width="130" height="190" rx="6" fill="none" stroke="var(--ink)" stroke-width="2" stroke-dasharray="4 4"></rect>
+        <text x="65" y="30" text-anchor="middle" font-family="Kalam, cursive" font-size="15" fill="var(--ink-soft)">Flink jobs</text>
+        <text x="65" y="46" text-anchor="middle" font-family="Space Mono, monospace" font-size="8.5" fill="var(--ink-soft)">CP4/CP5</text>
+        <line x1="16" y1="62" x2="114" y2="62" stroke="var(--ink)" stroke-width="1" stroke-dasharray="1 4"></line>
+        <text x="65" y="88" text-anchor="middle" font-family="Kalam, cursive" font-size="15" fill="var(--ink-soft)">Lake +</text>
+        <text x="65" y="104" text-anchor="middle" font-family="Kalam, cursive" font-size="15" fill="var(--ink-soft)">ClickHouse</text>
+        <text x="65" y="120" text-anchor="middle" font-family="Space Mono, monospace" font-size="8.5" fill="var(--ink-soft)">CP6</text>
+        <line x1="16" y1="136" x2="114" y2="136" stroke="var(--ink)" stroke-width="1" stroke-dasharray="1 4"></line>
+        <text x="65" y="162" text-anchor="middle" font-family="Kalam, cursive" font-size="15" fill="var(--ink-soft)">Alerts + UI</text>
+        <text x="65" y="178" text-anchor="middle" font-family="Space Mono, monospace" font-size="8.5" fill="var(--ink-soft)">CP7</text>
+      </g>
+
+      <!-- little "not yet built" tag -->
+      <g transform="translate(970,330)">
+        <path d="M0,10 L14,0 L120,0 L120,26 L14,26 Z" fill="none" stroke="var(--ink-soft)" stroke-width="1.4" stroke-dasharray="3 3"></path>
+        <text x="62" y="17" text-anchor="middle" font-family="Space Mono, monospace" font-size="9" fill="var(--ink-soft)">not built yet</text>
+      </g>
+
+      <!-- damage/alert branch caption near ingestion -->
+      <g transform="translate(345,300)">
+        <path d="M20,0 C 20,-30 20,-55 40,-70" fill="none" stroke="var(--red)" stroke-width="2" stroke-dasharray="4 3" opacity="0.8"></path>
+        <text x="10" y="18" font-family="Space Mono, monospace" font-size="9.5" fill="var(--red)">SCAN_RESULT_DAMAGE_DETECTED</text>
+        <text x="10" y="32" font-family="Space Mono, monospace" font-size="9.5" fill="var(--red)">-&gt; ROUTING_ACTION_FLAG_FOR_REVIEW</text>
+        <text x="10" y="46" font-family="Space Mono, monospace" font-size="9.5" fill="var(--ink-soft)">(still published — CP4/5 jobs need to see it)</text>
+      </g>
+
+    </svg>
+
+    <figcaption>
+      Every station keeps <b>one open bidirectional gRPC stream</b> to the ingestion service —
+      it sends a <code>ScanEvent</code> per scan and gets a <code>RoutingInstruction</code> back on
+      the same stream, synchronously, so the physical sort gate never waits on anything downstream.
+      As a <b>decoupled side effect</b>, every structurally valid event is also published to the
+      <code>scan-events</code> Kafka topic, keyed by <code>package_id</code> — so every scan
+      belonging to one package always lands on the same partition, in order, which is what the
+      journey-correlation job (Checkpoint&nbsp;5) needs to trust without re-deriving order itself.
+      Dashed boxes on the right are designed, not yet built.
+    </figcaption>
+
+    <div class="legend">
+      <span><span class="swatch" style="background:var(--ink)"></span> gRPC (live, blocking)</span>
+      <span><span class="swatch" style="background:var(--amber-deep)"></span> Kafka publish (async, non-blocking)</span>
+      <span><span class="swatch" style="background:var(--teal)"></span> partitioned event</span>
+      <span><span class="swatch" style="background:var(--red)"></span> damage / alert path</span>
+    </div>
+  </figure>
+
+  <div class="notes-grid">
+    <div class="note">
+      <h3>Why key by package_id?</h3>
+      <p>Station (4 values) would only ever fill 4 of 6 partitions and gives no per-package order.
+      Random/event_id keying spreads load but scrambles a package's own scan order across
+      partitions. <code>package_id</code> is the only key that gives the one guarantee the
+      downstream join actually needs.</p>
+    </div>
+    <div class="note">
+      <h3>Why doesn't Kafka gate routing?</h3>
+      <p><code>route_for()</code> answers before <code>publish()</code> is awaited — publish runs as
+      a tracked <code>asyncio.Task</code>. A slow or momentarily unreachable broker delays
+      analytics, never the conveyor belt.</p>
+    </div>
+    <div class="note">
+      <h3>What's tested where?</h3>
+      <p>Fast suite (9 tests) uses an in-memory fake producer, no Docker needed. One test is
+      marked <code>kafka</code> and runs against the real broker — produce via gRPC, consume
+      back, decode, assert.</p>
+    </div>
+  </div>
+
+  <footer>SMART PACKAGE ROUTING &amp; DAMAGE DETECTION PLATFORM · MANIFEST REV. CHECKPOINT-3 · LOCAL FACILITY SIM</footer>
+</div>
