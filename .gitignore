@@ -6,3 +6,4 @@ gen/
 *.egg-info/
 .DS_Store
 data/catalog.db
+data/lake/

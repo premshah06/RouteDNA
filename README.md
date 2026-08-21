@@ -34,9 +34,14 @@ end-to-end (not just unit-tested) before the next was started:
    Kafka topic: one flags a package that's gone quiet too long, the
    other reconstructs each package's full path and checks it against
    what the path *should* have been.
-4. **Surface** — anomalies become `Alert` messages on their own Kafka
-   topic, ready for a live dashboard to subscribe to (in progress —
-   see Roadmap).
+4. **Persist** — every anomaly becomes an `Alert` on its own Kafka
+   topic. From there it splits two ways: raw scan events land in a
+   Parquet data lake (full history, cheap storage), and alerts get
+   loaded into ClickHouse with a pre-aggregated hourly rollup (fast
+   dashboard queries — count by type/severity without scanning raw
+   rows every time).
+5. **Surface** — a live dashboard subscribing to alerts in real time is
+   the last piece (in progress — see Roadmap).
 
 The stuck-package detector was deliberately built and proven *before*
 the journey correlator, even though both consume the same topic — it's
@@ -75,7 +80,9 @@ write to a shared `alerts` topic.
 | Stream processing | **PyFlink (DataStream API)** | Real event-time semantics — watermarks, session windows, per-key timers — the actual tool for out-of-order journey reconstruction, not a hand-rolled approximation |
 | Schema | **Protobuf**, `buf`-linted | One schema, three consumers (gRPC, Kafka, Flink); evolution rules (reserved fields, `UNSPECIFIED` enum zero-values) enforced from the first commit |
 | Catalog | **SQLite**, generated seed data | 50k realistic items so packages show names, not bare UUIDs — no external DB needed for local dev |
-| Infra | **Docker Compose** | Kafka + Flink JobManager/TaskManager, one `docker compose up` |
+| Data lake | **Parquet**, Hive-partitioned by date/hour | Full raw-event history at low storage cost; a Python consumer (not a Flink job — no windowing/joins needed for "durably persist what already exists") batches scan-events straight to disk |
+| Warehouse | **ClickHouse** | Pre-aggregated hourly rollups via a materialized view — a dashboard query never scans raw alert rows, it reads a running count that updates itself as data lands |
+| Infra | **Docker Compose** | Kafka + Flink JobManager/TaskManager + ClickHouse, one `docker compose up` |
 
 ## Roadmap
 
@@ -84,7 +91,7 @@ write to a shared `alerts` topic.
 - ✅ Kafka decoupling, partitioned by `package_id`
 - ✅ Stuck-package detection (PyFlink, per-key event-time timers)
 - ✅ Journey correlation (PyFlink, event-time session windows, misrouting detection)
-- ⏳ Data lake + warehouse (raw events to Parquet, aggregates to ClickHouse)
+- ✅ Data lake + warehouse (raw events to Parquet, alerts + hourly rollups to ClickHouse)
 - ⏳ Live alert/query gRPC service + frontend
 
 ---
@@ -120,7 +127,10 @@ services/station_sim/          gRPC client: simulates a scan station
 services/common/catalog.py      read-only access to the item catalog (data/catalog.db)
 stream_processing/jobs/         PyFlink jobs (stuck-package detection, journey correlation)
 stream_processing/flink_image/   Dockerfile: Flink + PyFlink + Kafka connector
-docker-compose.yml               local Kafka (KRaft) + Flink cluster
+warehouse/lake_writer/          Kafka consumer: scan-events -> Hive-partitioned Parquet (data/lake/)
+warehouse/clickhouse_loader/    Kafka consumer: alerts -> ClickHouse
+warehouse/init/                 ClickHouse schema (alerts table + hourly rollup materialized view)
+docker-compose.yml               local Kafka (KRaft) + Flink cluster + ClickHouse
 scripts/seed_catalog.py          generates data/catalog.db (item names/SKUs/stock)
 ```
 
@@ -189,7 +199,7 @@ docker exec thing-transfer-kafka /opt/kafka/bin/kafka-get-offsets.sh \
 
 ```bash
 source .venv/bin/activate
-python3 -m pytest services/ingestion/tests/ services/common/tests/ -v  # fast suite, no Docker needed
+python3 -m pytest services/ingestion/tests/ services/common/tests/ warehouse/tests/ -v  # fast suite, no Docker needed
 python3 -m pytest services/ingestion/tests/ -v -m kafka                 # requires: docker compose up -d
 ```
 
@@ -222,3 +232,27 @@ sys.path.insert(0, "gen/python")
 from packagepb.v1 import alert_pb2
 alert_pb2.Alert.FromString(base64.b64decode(line))
 ```
+
+## Warehouse: lake writer + ClickHouse loader
+
+Both are standalone Python Kafka consumers, not Flink jobs — neither
+needs windowing/joins, just "durably persist what already exists."
+
+```bash
+source .venv/bin/activate
+PYTHONPATH=gen/python python3 warehouse/lake_writer/writer.py       # scan-events -> data/lake/
+PYTHONPATH=gen/python python3 warehouse/clickhouse_loader/loader.py # alerts -> ClickHouse
+```
+
+Query the warehouse (default local credentials, set in `docker-compose.yml`):
+
+```bash
+curl -u default:thing-transfer-local http://localhost:8123/ --data \
+  "SELECT hour, alert_type, countMerge(alert_count) AS alerts
+   FROM alert_hourly_rollup GROUP BY hour, alert_type ORDER BY hour"
+```
+
+Both consumers commit Kafka offsets only after a successful
+write/insert (not on Kafka's own auto-commit timer) — a crash mid-batch
+re-processes those messages on restart instead of silently dropping
+them.

@@ -232,6 +232,12 @@ def build_misrouting_alert(package_id: str, b64_events) -> "alert_pb2.Alert | No
     alert.misrouting_detail.expected_station = expected_station
     alert.misrouting_detail.actual_station = actual_station
     alert.misrouting_detail.path_so_far.extend(path)
+    # Last event's own scan time, not wall-clock now() — this function
+    # doesn't have access to the window's fire timestamp, and the last
+    # scan in the (sorted) path is the most meaningful "when this
+    # journey's outcome became knowable" for this alert. Left unset,
+    # this field silently defaults to protobuf's epoch-zero Timestamp.
+    alert.detected_at.FromMilliseconds(events[-1].scanned_at.ToMilliseconds())
     return alert
 
 

@@ -76,6 +76,40 @@ def encode_alert(alert: alert_pb2.Alert) -> str:
     return base64.b64encode(alert.SerializeToString()).decode("ascii")
 
 
+def build_stuck_alert(package_id: str, last_station: int, last_scan_time: int, timer_fire_time: int) -> alert_pb2.Alert:
+    """Pure alert-construction logic, factored out of on_timer so it's
+    directly unit-testable without faking Flink's OnTimerContext."""
+    threshold_seconds = STUCK_THRESHOLD_MS // 1000
+    threshold_display = (
+        f"{threshold_seconds // 60}+ minutes" if threshold_seconds >= 60 else f"{threshold_seconds}+ seconds"
+    )
+    alert = alert_pb2.Alert(
+        alert_id=f"stuck-{package_id}-{timer_fire_time}",
+        package_id=package_id,
+        alert_type=alert_pb2.ALERT_TYPE_STUCK_PACKAGE,
+        severity=alert_pb2.SEVERITY_WARNING,
+        message=(
+            f"Package stuck at {common_pb2.StationType.Name(last_station)} for "
+            f"{threshold_display} with no further scan"
+        ),
+        station=last_station,
+    )
+    # timer_fire_time is the timer's fire time (event time) — when this
+    # anomaly was actually detected, not wall-clock now(). Left unset,
+    # this field defaults to protobuf's epoch-zero Timestamp, which is
+    # silent and easy to miss until something (e.g. a warehouse
+    # partitioned by this field) actually reads it.
+    alert.detected_at.FromMilliseconds(timer_fire_time)
+    alert.stuck_detail.last_scan_at.FromMilliseconds(last_scan_time)
+    # timer_fire_time is >= last_scan_time + threshold, not necessarily
+    # equal to it — watermark lag between when the timer fires and how
+    # far event time has actually advanced can push the true elapsed
+    # duration past the configured threshold.
+    alert.stuck_detail.stuck_duration_seconds = (timer_fire_time - last_scan_time) // 1000
+    alert.stuck_detail.threshold_seconds = threshold_seconds
+    return alert
+
+
 class StuckPackageDetector(KeyedProcessFunction):
     """Per-package_id: track last scan time/station, fire an Alert if no
     newer scan arrives before last_scan_time + STUCK_THRESHOLD_MS."""
@@ -116,29 +150,7 @@ class StuckPackageDetector(KeyedProcessFunction):
         if last_scan_time is None:
             return  # defensive: state was cleared/never set
 
-        threshold_seconds = STUCK_THRESHOLD_MS // 1000
-        threshold_display = (
-            f"{threshold_seconds // 60}+ minutes" if threshold_seconds >= 60 else f"{threshold_seconds}+ seconds"
-        )
-        alert = alert_pb2.Alert(
-            alert_id=f"stuck-{ctx.get_current_key()}-{timestamp}",
-            package_id=ctx.get_current_key(),
-            alert_type=alert_pb2.ALERT_TYPE_STUCK_PACKAGE,
-            severity=alert_pb2.SEVERITY_WARNING,
-            message=(
-                f"Package stuck at {common_pb2.StationType.Name(last_station)} for "
-                f"{threshold_display} with no further scan"
-            ),
-            station=last_station,
-        )
-        alert.stuck_detail.last_scan_at.FromMilliseconds(last_scan_time)
-        # timestamp (the timer's fire time) is >= last_scan_time + threshold,
-        # not necessarily equal to it — watermark lag between when the
-        # timer fires and how far event time has actually advanced can
-        # push the true elapsed duration past the configured threshold.
-        alert.stuck_detail.stuck_duration_seconds = (timestamp - last_scan_time) // 1000
-        alert.stuck_detail.threshold_seconds = threshold_seconds
-
+        alert = build_stuck_alert(ctx.get_current_key(), last_station, last_scan_time, timestamp)
         yield encode_alert(alert)
 
 

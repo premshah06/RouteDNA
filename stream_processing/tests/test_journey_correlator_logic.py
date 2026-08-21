@@ -113,6 +113,12 @@ def test_skipped_station_produces_alert_with_correct_detail():
     assert alert.misrouting_detail.expected_station == SORT_A
     assert alert.misrouting_detail.actual_station == SORT_B
     assert list(alert.misrouting_detail.path_so_far) == [INTAKE, SORT_B, DISPATCH]
+    # Regression test: detected_at was never set, silently defaulting to
+    # protobuf's epoch-zero Timestamp (see the sibling stuck_package_detector
+    # test with the same fix). Here it should be the last (sorted) event's
+    # own scan time — DISPATCH at 3000ms in this journey.
+    assert alert.detected_at.ToMilliseconds() == 3000
+    assert alert.detected_at.ToMilliseconds() != 0
 
 
 def test_journey_that_never_reaches_dispatch_is_flagged_critical():

@@ -20,7 +20,13 @@ import base64
 from packagepb.v1 import common_pb2, scan_event_pb2
 from google.protobuf.timestamp_pb2 import Timestamp
 
-from stuck_package_detector import ScanEventTimestampAssigner, decode_scan_event, encode_alert, extract_package_id
+from stuck_package_detector import (
+    ScanEventTimestampAssigner,
+    build_stuck_alert,
+    decode_scan_event,
+    encode_alert,
+    extract_package_id,
+)
 from packagepb.v1 import alert_pb2
 
 
@@ -60,6 +66,35 @@ def test_timestamp_assigner_uses_scanned_at_not_record_timestamp():
     # scanned_at field, since that's the actual event-time semantics
     # this job needs (see module docstring).
     assert assigner.extract_timestamp(line, 999) == 1_700_000_000_000
+
+
+def test_build_stuck_alert_sets_detected_at():
+    # Regression test: detected_at was never set on stuck alerts, so it
+    # silently defaulted to protobuf's epoch-zero Timestamp — invisible
+    # until something (the warehouse's MergeTree partitioning) actually
+    # read the field and every row landed in a 1970 partition.
+    alert = build_stuck_alert(
+        package_id="pkg-1",
+        last_station=common_pb2.STATION_TYPE_SORT_A,
+        last_scan_time=1_700_000_000_000,
+        timer_fire_time=1_700_000_600_000,
+    )
+    assert alert.detected_at.ToMilliseconds() == 1_700_000_600_000
+    assert alert.detected_at.ToMilliseconds() != 0
+
+
+def test_build_stuck_alert_fields():
+    alert = build_stuck_alert(
+        package_id="pkg-2",
+        last_station=common_pb2.STATION_TYPE_INTAKE,
+        last_scan_time=1_700_000_000_000,
+        timer_fire_time=1_700_000_015_000,
+    )
+    assert alert.package_id == "pkg-2"
+    assert alert.alert_id == "stuck-pkg-2-1700000015000"
+    assert alert.alert_type == alert_pb2.ALERT_TYPE_STUCK_PACKAGE
+    assert alert.station == common_pb2.STATION_TYPE_INTAKE
+    assert alert.stuck_detail.stuck_duration_seconds == 15
 
 
 def test_encode_alert_produces_decodable_base64():
