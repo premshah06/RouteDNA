@@ -1,0 +1,73 @@
+# Translates grpc-web (what a browser can actually send) into native
+# gRPC (what services/live_feed/server.py speaks) — browsers cannot
+# read HTTP/2 trailers, which native gRPC's status/trailer-based
+# framing depends on, so something has to sit in front of any gRPC
+# service a browser calls directly.
+static_resources:
+  listeners:
+    - name: grpc_web_listener
+      address:
+        socket_address: { address: 0.0.0.0, port_value: 8080 }
+      filter_chains:
+        - filters:
+            - name: envoy.filters.network.http_connection_manager
+              typed_config:
+                "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+                stat_prefix: ingress_http
+                codec_type: AUTO
+                route_config:
+                  name: local_route
+                  virtual_hosts:
+                    - name: live_feed
+                      domains: ["*"]
+                      # TODO(prod): this wildcard is fine for local dev (frontend
+                      # origin varies by port/host) but must become an exact
+                      # allow-list of known frontend origins before this is
+                      # reachable outside a dev machine — Subscribe currently
+                      # has no auth, so an open CORS policy is an open read API.
+                      cors:
+                        allow_origin_string_match:
+                          - prefix: "*"
+                        allow_methods: GET, PUT, DELETE, POST, OPTIONS
+                        allow_headers: keep-alive,user-agent,cache-control,content-type,content-transfer-encoding,x-accept-content-transfer-encoding,x-accept-response-streaming,x-user-agent,x-grpc-web,grpc-timeout
+                        max_age: "1728000"
+                        expose_headers: grpc-status,grpc-message
+                      routes:
+                        - match: { prefix: "/" }
+                          route:
+                            cluster: live_feed_service
+                            timeout: 0s
+                            max_grpc_timeout: 0s
+                http_filters:
+                  - name: envoy.filters.http.grpc_web
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.grpc_web.v3.GrpcWeb
+                  - name: envoy.filters.http.cors
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.cors.v3.Cors
+                  - name: envoy.filters.http.router
+                    typed_config:
+                      "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+  clusters:
+    - name: live_feed_service
+      connect_timeout: 5s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      typed_extension_protocol_options:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          explicit_http_config:
+            http2_protocol_options: {}
+      load_assignment:
+        cluster_name: live_feed_service
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: live-feed
+                      port_value: 50052
+
+admin:
+  address:
+    socket_address: { address: 0.0.0.0, port_value: 9901 }

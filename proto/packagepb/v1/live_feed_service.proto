@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package packagepb.v1;
+
+import "packagepb/v1/common.proto";
+import "packagepb/v1/alert.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/example/thing-transfer/gen/packagepb/v1;packagepbv1";
+
+// LiveFeedService is what Checkpoint 7's frontend subscribes to: one
+// server-streaming RPC pushing both package position updates and
+// alerts as they happen, so the UI never has to poll. This is the
+// service the design docs describe as "the alert/query gRPC service
+// the frontend subscribes to for live package positions and alerts."
+//
+// Backed by services/live_feed (Checkpoint 7): a lightweight consumer
+// of scan-events (for positions) and alerts (forwarded as-is), holding
+// only in-memory state — deliberately not durable, since history
+// already lives in the lake/warehouse (Checkpoint 6). A client that
+// reconnects gets a fresh snapshot of current positions plus the live
+// stream going forward, not a replay of everything that ever happened.
+service LiveFeedService {
+  // One long-lived call: on connect, immediately emits a
+  // PositionUpdate for every package currently known (a snapshot), then
+  // streams PositionUpdate/Alert events as they occur. The client never
+  // sends anything after the initial request — this is push-only, which
+  // is why it's plain server-streaming rather than bidirectional.
+  rpc Subscribe(SubscribeRequest) returns (stream LiveFeedEvent);
+}
+
+message SubscribeRequest {
+  // Empty for now — every client sees the whole facility. A future
+  // per-station or per-package filter would go here without breaking
+  // existing clients (proto3 default-empty fields).
+}
+
+// Exactly one of these is set per event — modeled as a oneof for the
+// same reason Alert.detail is: adding a new event kind later is a new
+// oneof branch, not an ambiguous combination of optional fields.
+message LiveFeedEvent {
+  oneof event {
+    PositionUpdate position_update = 1;
+    Alert alert = 2;
+  }
+}
+
+// A package's most recently known station. Emitted once per scan (not
+// just on change) since a repeated scan at the same station is still
+// meaningful liveness information for the UI (the package hasn't
+// stalled) — the stuck-package detector, not this stream, is the
+// source of truth for "has this gone quiet."
+message PositionUpdate {
+  string package_id = 1;
+  StationType station = 2;
+  google.protobuf.Timestamp updated_at = 3;
+}

@@ -92,6 +92,30 @@ services:
       - clickhouse-data:/var/lib/clickhouse
       - ./warehouse/init:/docker-entrypoint-initdb.d:ro
 
+  live-feed:
+    build:
+      context: .
+      dockerfile: services/live_feed/Dockerfile
+    container_name: thing-transfer-live-feed
+    depends_on:
+      kafka:
+        condition: service_healthy
+    environment:
+      KAFKA_BOOTSTRAP: kafka:19092
+    ports:
+      - "50052:50052"
+
+  envoy:
+    image: envoyproxy/envoy:v1.31-latest
+    container_name: thing-transfer-envoy
+    depends_on:
+      - live-feed
+    ports:
+      - "8090:8080"  # grpc-web, browser-facing
+      - "9901:9901"  # envoy admin
+    volumes:
+      - ./envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
+
 volumes:
   kafka-data:
   clickhouse-data:

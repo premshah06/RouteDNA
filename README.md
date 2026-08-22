@@ -92,7 +92,7 @@ write to a shared `alerts` topic.
 - ✅ Stuck-package detection (PyFlink, per-key event-time timers)
 - ✅ Journey correlation (PyFlink, event-time session windows, misrouting detection)
 - ✅ Data lake + warehouse (raw events to Parquet, alerts + hourly rollups to ClickHouse)
-- ⏳ Live alert/query gRPC service + frontend
+- ✅ Live alert/query gRPC service + frontend (grpc-web + Envoy, React facility view)
 
 ---
 
