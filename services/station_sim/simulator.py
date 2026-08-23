@@ -30,7 +30,7 @@ _STATION_NAME_TO_ENUM = {
 }
 
 
-def _make_event(station: int, scanner_id: str, package_id: str) -> scan_event_pb2.ScanEvent:
+def _make_event(station: int, scanner_id: str, package_id: str, item_id: str) -> scan_event_pb2.ScanEvent:
     """Build one synthetic scan, occasionally simulating damage or an
     unreadable barcode so the ingestion service's branching logic
     actually gets exercised end to end, not just the happy path."""
@@ -42,6 +42,12 @@ def _make_event(station: int, scanner_id: str, package_id: str) -> scan_event_pb
         scanner_id=scanner_id,
         scanned_at=now_ts(),
     )
+    # item_id rides in the attributes escape hatch rather than a typed
+    # field — only live_feed needs it (to resolve a display name), so a
+    # schema change forcing every consumer to regenerate stubs isn't
+    # worth it for what's still debug/display-only data.
+    if item_id:
+        event.attributes["item_id"] = item_id
     if roll < 0.05:
         event.result = scan_event_pb2.SCAN_RESULT_UNREADABLE
     elif roll < 0.15:
@@ -64,13 +70,14 @@ async def _send_events(
 ):
     for i in range(count):
         package_id = package_ids[i % len(package_ids)]
-        event = _make_event(station, scanner_id, package_id)
+        item = package_items.get(package_id)
+        event = _make_event(station, scanner_id, package_id, item.item_id if item else "")
         await call.write(event)
         logger.info(
             "sent event_id=%s package_id=%s item=%r result=%s",
             event.event_id,
             event.package_id,
-            package_items.get(package_id, "<unknown item>"),
+            item.name if item else "<unknown item>",
             scan_event_pb2.ScanResult.Name(event.result),
         )
         await asyncio.sleep(interval)
@@ -93,17 +100,17 @@ async def run(host: str, port: int, station_name: str, scanner_id: str, num_pack
     package_ids = [str(uuid.uuid4()) for _ in range(num_packages)]
 
     # Associate each simulated package with a real catalog item so
-    # downstream logs/alerts show a human-readable name instead of a
-    # bare package_id. Package itself isn't persisted anywhere yet
-    # (that's Checkpoint 6's job) — this only makes existing log output
-    # legible.
+    # downstream logs/alerts/live-feed UI show a human-readable name
+    # instead of a bare package_id. Package itself isn't persisted
+    # anywhere yet (that's Checkpoint 6's job) — this only makes
+    # existing log output and the item_id carried on each ScanEvent
+    # (see _make_event) reference a real catalog row.
     catalog = Catalog()
     try:
         item_ids = catalog.sample_item_ids(num_packages)
-        package_items = {}
-        for package_id, item_id in zip(package_ids, item_ids):
-            item = catalog.get(item_id)
-            package_items[package_id] = item.name if item else "<unknown item>"
+        package_items = {
+            package_id: catalog.get(item_id) for package_id, item_id in zip(package_ids, item_ids)
+        }
     finally:
         catalog.close()
 

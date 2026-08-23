@@ -14,12 +14,15 @@ from packagepb.v1 import alert_pb2, common_pb2, scan_event_pb2
 from server import Broadcaster
 
 
-def _scan_event(package_id="pkg-1", station=common_pb2.STATION_TYPE_SORT_A, epoch_ms=1_700_000_000_000):
+def _scan_event(package_id="pkg-1", station=common_pb2.STATION_TYPE_SORT_A, epoch_ms=1_700_000_000_000, item_id=None):
     ts = Timestamp()
     ts.FromMilliseconds(epoch_ms)
-    return scan_event_pb2.ScanEvent(
+    event = scan_event_pb2.ScanEvent(
         event_id="evt-1", package_id=package_id, station=station, scanned_at=ts
     )
+    if item_id:
+        event.attributes["item_id"] = item_id
+    return event
 
 
 def test_apply_scan_event_updates_position_table():
@@ -35,6 +38,24 @@ def test_apply_scan_event_overwrites_previous_position():
     b.apply_scan_event(_scan_event(package_id="pkg-1", station=common_pb2.STATION_TYPE_SORT_A))
     assert b.positions["pkg-1"].station == common_pb2.STATION_TYPE_SORT_A
     assert len(b.positions) == 1
+
+
+def test_apply_scan_event_resolves_item_name_from_catalog():
+    b = Broadcaster(item_names={"item-42": "Wireless Mouse - Black"})
+    b.apply_scan_event(_scan_event(package_id="pkg-1", item_id="item-42"))
+    assert b.positions["pkg-1"].item_name == "Wireless Mouse - Black"
+
+
+def test_apply_scan_event_missing_item_id_leaves_item_name_empty():
+    b = Broadcaster(item_names={"item-42": "Wireless Mouse - Black"})
+    b.apply_scan_event(_scan_event(package_id="pkg-1"))
+    assert b.positions["pkg-1"].item_name == ""
+
+
+def test_apply_scan_event_unknown_item_id_leaves_item_name_empty():
+    b = Broadcaster(item_names={"item-42": "Wireless Mouse - Black"})
+    b.apply_scan_event(_scan_event(package_id="pkg-1", item_id="does-not-exist"))
+    assert b.positions["pkg-1"].item_name == ""
 
 
 def test_snapshot_events_reflects_current_positions():

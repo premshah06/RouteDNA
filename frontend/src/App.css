@@ -116,12 +116,29 @@ body {
   padding: 6px 10px;
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
   font-size: 0.8rem;
+}
+
+.package-name {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.package-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-shrink: 0;
   font-family: ui-monospace, monospace;
 }
 
 .package-id {
   color: var(--accent);
+  font-size: 0.72rem;
 }
 
 .package-time {
@@ -180,6 +197,14 @@ body {
 .alert-type {
   font-weight: 600;
   color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.alert-icon {
+  font-size: 0.9rem;
+  line-height: 1;
 }
 
 .alert-message {
@@ -189,7 +214,6 @@ body {
 
 .alert-package {
   margin-top: 4px;
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   color: var(--text-dim);
-  font-family: ui-monospace, monospace;
 }

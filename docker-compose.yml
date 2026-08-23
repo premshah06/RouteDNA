@@ -102,6 +102,11 @@ services:
         condition: service_healthy
     environment:
       KAFKA_BOOTSTRAP: kafka:19092
+    volumes:
+      # Read-only: live-feed only resolves item_id -> name for display,
+      # it never writes. Mounted rather than baked into the image so a
+      # reseed (scripts/seed_catalog.py) doesn't need a rebuild.
+      - ./data/catalog.db:/app/data/catalog.db:ro
     ports:
       - "50052:50052"
 

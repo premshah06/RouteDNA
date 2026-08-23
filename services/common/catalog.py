@@ -41,6 +41,15 @@ class Catalog:
         ).fetchall()
         return [row["item_id"] for row in rows]
 
+    def all_names(self) -> dict[str, str]:
+        """item_id -> name for every catalog row, for callers that want
+        to resolve names in a tight loop (e.g. per-event in a stream
+        processor) without a sqlite round trip each time. At the current
+        catalog size (~50k rows) this is a few MB in memory, cheap
+        compared to a query per event."""
+        rows = self._conn.execute("SELECT item_id, name FROM items").fetchall()
+        return {row["item_id"]: row["name"] for row in rows}
+
     def close(self) -> None:
         self._conn.close()
 

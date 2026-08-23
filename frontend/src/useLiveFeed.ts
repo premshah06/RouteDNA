@@ -20,6 +20,7 @@ export interface PackagePosition {
   packageId: string;
   station: StationType;
   updatedAtMs: number;
+  itemName: string;
 }
 
 export interface AlertItem {
@@ -81,6 +82,7 @@ export function useLiveFeed() {
               packageId,
               station: p.getStation(),
               updatedAtMs: updatedAt ? updatedAt.getSeconds() * 1000 + updatedAt.getNanos() / 1e6 : Date.now(),
+              itemName: p.getItemName(),
             });
             return next;
           });

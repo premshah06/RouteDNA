@@ -23,6 +23,16 @@ const ALERT_TYPE_LABEL: Record<number, string> = {
   [AlertType.ALERT_TYPE_MISROUTING]: "Misrouted",
 };
 
+// One glance should say which of the platform's three failure modes
+// this is — the whole point of this dashboard (see README) — without
+// reading the label text.
+const ALERT_TYPE_ICON: Record<number, string> = {
+  [AlertType.ALERT_TYPE_UNSPECIFIED]: "?",
+  [AlertType.ALERT_TYPE_STUCK_PACKAGE]: "⏱",
+  [AlertType.ALERT_TYPE_DAMAGE]: "⚠",
+  [AlertType.ALERT_TYPE_MISROUTING]: "⇄",
+};
+
 const SEVERITY_LABEL: Record<number, string> = {
   [Severity.SEVERITY_UNSPECIFIED]: "unspecified",
   [Severity.SEVERITY_INFO]: "info",
@@ -71,8 +81,11 @@ function App() {
               <ul className="package-list">
                 {packages.map((p) => (
                   <li key={p.packageId} className="package-chip" title={p.packageId}>
-                    <span className="package-id">{p.packageId.slice(0, 8)}</span>
-                    <span className="package-time">{timeAgo(p.updatedAtMs)}</span>
+                    <span className="package-name">{p.itemName || `Package ${p.packageId.slice(0, 8)}`}</span>
+                    <span className="package-meta">
+                      {p.itemName && <span className="package-id">{p.packageId.slice(0, 8)}</span>}
+                      <span className="package-time">{timeAgo(p.updatedAtMs)}</span>
+                    </span>
                   </li>
                 ))}
                 {packages.length === 0 && <li className="empty">—</li>}
@@ -85,18 +98,24 @@ function App() {
       <aside className="alerts-panel">
         <h2>Alerts</h2>
         <ul className="alerts-list">
-          {alerts.map((alert) => (
-            <li key={`${alert.alertId}-${alert.detectedAtMs}`} className={`alert-item severity-${SEVERITY_LABEL[alert.severity]}`}>
-              <div className="alert-header">
-                <span className="alert-type">{ALERT_TYPE_LABEL[alert.alertType] ?? "Alert"}</span>
-                <span className="alert-time">{timeAgo(alert.detectedAtMs)}</span>
-              </div>
-              <div className="alert-message">{alert.message}</div>
-              <div className="alert-package" title={alert.packageId}>
-                {alert.packageId.slice(0, 8)}
-              </div>
-            </li>
-          ))}
+          {alerts.map((alert) => {
+            const itemName = positions.get(alert.packageId)?.itemName;
+            return (
+              <li key={`${alert.alertId}-${alert.detectedAtMs}`} className={`alert-item severity-${SEVERITY_LABEL[alert.severity]}`}>
+                <div className="alert-header">
+                  <span className="alert-type">
+                    <span className="alert-icon" aria-hidden="true">{ALERT_TYPE_ICON[alert.alertType] ?? "?"}</span>
+                    {ALERT_TYPE_LABEL[alert.alertType] ?? "Alert"}
+                  </span>
+                  <span className="alert-time">{timeAgo(alert.detectedAtMs)}</span>
+                </div>
+                <div className="alert-message">{alert.message}</div>
+                <div className="alert-package" title={alert.packageId}>
+                  {itemName || `Package ${alert.packageId.slice(0, 8)}`}
+                </div>
+              </li>
+            );
+          })}
           {alerts.length === 0 && <li className="empty">No alerts yet</li>}
         </ul>
       </aside>

@@ -32,11 +32,13 @@ import base64
 import logging
 import os
 import sys
+from typing import Optional
 
 import grpc
 from aiokafka import AIOKafkaConsumer
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "gen", "python"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "common"))
 
 from packagepb.v1 import (  # noqa: E402
     alert_pb2,
@@ -44,6 +46,7 @@ from packagepb.v1 import (  # noqa: E402
     live_feed_service_pb2_grpc,
     scan_event_pb2,
 )
+from catalog import Catalog  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("live_feed")
@@ -70,9 +73,13 @@ class Broadcaster:
     client queues. Not thread-safe by design — everything here runs on
     one asyncio event loop, so no locks are needed."""
 
-    def __init__(self):
+    def __init__(self, item_names: Optional[dict] = None):
         self.positions: dict[str, live_feed_service_pb2.PositionUpdate] = {}
         self._clients: set[asyncio.Queue] = set()
+        # item_id -> name, loaded once at startup (see Catalog.all_names).
+        # Missing/empty is fine — item_name just stays "" on the
+        # PositionUpdate, same as a ScanEvent with no item_id attribute.
+        self._item_names = item_names or {}
 
     def register_client(self) -> asyncio.Queue:
         queue: asyncio.Queue = asyncio.Queue(maxsize=CLIENT_QUEUE_MAXSIZE)
@@ -105,10 +112,12 @@ class Broadcaster:
                 pass  # lost a race with another producer; acceptable, best-effort
 
     def apply_scan_event(self, event: scan_event_pb2.ScanEvent) -> None:
+        item_id = event.attributes.get("item_id", "")
         position = live_feed_service_pb2.PositionUpdate(
             package_id=event.package_id,
             station=event.station,
             updated_at=event.scanned_at,
+            item_name=self._item_names.get(item_id, ""),
         )
         self.positions[event.package_id] = position
         self._broadcast(live_feed_service_pb2.LiveFeedEvent(position_update=position))
@@ -176,8 +185,20 @@ class LiveFeedServicer(live_feed_service_pb2_grpc.LiveFeedServiceServicer):
             logger.info("client disconnected: %s", peer)
 
 
+def _load_item_names() -> dict[str, str]:
+    try:
+        catalog = Catalog()
+    except FileNotFoundError:
+        logger.warning("item catalog not found — position updates will show no item name")
+        return {}
+    try:
+        return catalog.all_names()
+    finally:
+        catalog.close()
+
+
 async def serve(port: int = 50052) -> None:
-    broadcaster = Broadcaster()
+    broadcaster = Broadcaster(item_names=_load_item_names())
 
     server = grpc.aio.server()
     live_feed_service_pb2_grpc.add_LiveFeedServiceServicer_to_server(

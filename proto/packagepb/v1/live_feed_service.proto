@@ -54,4 +54,12 @@ message PositionUpdate {
   string package_id = 1;
   StationType station = 2;
   google.protobuf.Timestamp updated_at = 3;
+
+  // Resolved from the item_id ScanEvent carries in its attributes map
+  // (see scan_event.proto) via the item catalog — empty if the source
+  // event had no item_id or the catalog lookup missed. Denormalized
+  // onto this message rather than making the frontend do a second
+  // lookup, since this is a display-only convenience field and the
+  // catalog is this service's own dependency, not the client's.
+  string item_name = 4;
 }
