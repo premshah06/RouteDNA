@@ -96,7 +96,7 @@ write to a shared `alerts` topic.
 - ✅ Data lake + warehouse (raw events to Parquet, alerts + hourly rollups to ClickHouse)
 - ✅ Live alert/query gRPC service + frontend (grpc-web + Envoy, React facility view)
 - ✅ Batch layer (Dagster: daily throughput, damage rate by item category, lake-vs-streaming reconciliation)
-- ⏳ CI/CD and DevOps hardening
+- ✅ CI/CD and DevOps hardening (GitHub Actions: lint/test/build every component, Dependabot, pre-commit hooks, secret scanning)
 
 ---
 
@@ -203,15 +203,19 @@ docker exec thing-transfer-kafka /opt/kafka/bin/kafka-get-offsets.sh \
 
 ```bash
 source .venv/bin/activate
-python3 -m pytest services/ingestion/tests/ services/common/tests/ warehouse/tests/ -v  # fast suite, no Docker needed
+PYTHONPATH=gen/python:services/common python3 -m pytest services/ingestion/tests/ services/common/tests/ -v
+PYTHONPATH=gen/python:services/common:services/live_feed python3 -m pytest services/live_feed/tests/ -v
+PYTHONPATH=gen/python:warehouse/lake_writer python3 -m pytest warehouse/tests/test_lake_writer.py -v
+PYTHONPATH=gen/python:warehouse/clickhouse_loader python3 -m pytest warehouse/tests/test_clickhouse_loader.py -v
 python3 -m pytest services/ingestion/tests/ -v -m kafka                 # requires: docker compose up -d
 ```
 
-The fast suite includes pure unit tests of the routing decision logic
-and end-to-end streaming tests (real `grpc.aio` server/client pair on
-an ephemeral port, fake in-memory Kafka producer). `test_kafka_integration.py`
-is marked `kafka` and excluded by default; it exercises the real broker —
-produce via gRPC, consume back, decode, and verify.
+The fast suites above are pure logic/decode tests plus end-to-end
+streaming tests (real `grpc.aio` server/client pair on an ephemeral
+port, fake in-memory Kafka producer) — no live Kafka/ClickHouse
+needed. `test_kafka_integration.py` is marked `kafka` and excluded by
+default; it exercises the real broker — produce via gRPC, consume
+back, decode, and verify.
 
 Flink job tests (needs pyflink, which only exists inside the Docker
 image — see `scripts/run_flink_tests.sh`):
@@ -219,6 +223,38 @@ image — see `scripts/run_flink_tests.sh`):
 ```bash
 ./scripts/run_flink_tests.sh
 ```
+
+`batch/` (Dagster) has its own venv — see
+[Batch layer: Dagster](#batch-layer-dagster) below:
+
+```bash
+source batch/.venv/bin/activate
+python3 -m pytest batch/tests/ -v
+```
+
+## CI/CD
+
+`.github/workflows/ci.yml` runs on every push/PR: `buf lint` +
+breaking-change check against `main`, all the Python test suites above
+(each in the PYTHONPATH configuration it actually needs), the Flink
+job tests inside the Flink image, a frontend typecheck/lint/build, a
+clean (no-cache) Docker build of every service image — catching a
+Dockerfile that only works because of stale local layers — and a
+`gitleaks` secret scan. `.github/dependabot.yml` tracks the three
+separate dependency surfaces (root `requirements.txt`, `batch/requirements.txt`,
+`frontend/package.json`) independently, since they're deliberately not
+sharing a lockfile (see [Batch layer](#batch-layer-dagster) for why).
+
+For fast local feedback before a commit even reaches CI:
+
+```bash
+pip install pre-commit && pre-commit install
+```
+
+Runs `ruff` (Python), `buf lint`, and `oxlint` (frontend) on `git
+commit` — the same checks CI runs, minus the slow parts (full test
+suites, Docker builds), so it stays fast enough not to be worth
+skipping.
 
 ## Reading alerts
 
@@ -255,6 +291,35 @@ curl -u default:thing-transfer-local http://localhost:8123/ --data \
   "SELECT hour, alert_type, countMerge(alert_count) AS alerts
    FROM alert_hourly_rollup GROUP BY hour, alert_type ORDER BY hour"
 ```
+
+## Batch layer: Dagster
+
+Streaming already computes real-time alerts and hourly rollups — this
+layer reprocesses the raw Parquet lake (source of truth, not Kafka)
+into full-day aggregates streaming shouldn't compute on its hot path:
+per-station throughput, damage rate by item category (joined against
+the catalog), and a reconciliation check flagging a day where the lake
+shows traffic but streaming produced zero alerts.
+
+Runs in its own virtualenv, `batch/.venv` — Dagster's `protobuf>=3.20,<7`
+dependency conflicts with the `protobuf==4.23.4` pin the gRPC/PyFlink
+stack requires (see `requirements.txt`'s own comments), and `batch/`
+has no real reason to share a process boundary with that stack; it
+only reads Parquet and writes to ClickHouse over HTTP.
+
+```bash
+python3 -m venv batch/.venv
+source batch/.venv/bin/activate
+pip install -r batch/requirements.txt
+
+cd batch && dagster-webserver -w workspace.yaml -p 3001  # UI at localhost:3001
+# or, one-off from the CLI:
+dagster asset materialize -m thing_transfer_batch --partition 2026-08-23 --select "*"
+```
+
+In Docker Compose, the `dagster` service exposes the same UI at
+`localhost:3001` (host port `3000` is commonly already bound on dev
+machines, hence the remap) with the lake and catalog mounted read-only.
 
 Both consumers commit Kafka offsets only after a successful
 write/insert (not on Kafka's own auto-commit timer) — a crash mid-batch

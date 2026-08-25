@@ -10,6 +10,7 @@ partitioned dataset reader for a one-day slice.
 import os
 from pathlib import Path
 
+import pyarrow as pa
 import pyarrow.dataset as ds
 
 # Defaults to the repo-root data/lake for local (non-Docker) runs, same
@@ -19,7 +20,7 @@ import pyarrow.dataset as ds
 LAKE_ROOT = Path(os.environ.get("LAKE_ROOT", Path(__file__).resolve().parents[2] / "data" / "lake"))
 
 
-def read_scan_events_for_date(report_date: str) -> "pyarrow.Table":
+def read_scan_events_for_date(report_date: str) -> pa.Table:
     """report_date: 'YYYY-MM-DD'. Returns an empty (zero-row, but
     correctly-schema'd) table if the lake has no data for that day —
     a day with genuinely no traffic is a valid input, not an error,
@@ -38,9 +39,7 @@ def read_scan_events_for_date(report_date: str) -> "pyarrow.Table":
     return table
 
 
-def _empty_table():
-    import pyarrow as pa
-
+def _empty_table() -> pa.Table:
     schema = pa.schema(
         [
             ("event_id", pa.string()),

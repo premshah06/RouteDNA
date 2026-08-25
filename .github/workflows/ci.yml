@@ -1,0 +1,161 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same PR should cancel the still-running check
+# for the previous push rather than queue behind it — nobody needs the
+# stale run's result once a newer commit exists.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  proto-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # .git#branch=main needs real branch history to resolve
+          # against, not actions/checkout's default shallow clone — a
+          # shallow clone would leave buf unable to resolve `main` as
+          # a distinct ref at all.
+          fetch-depth: 0
+      - uses: bufbuild/buf-setup-action@v1
+      - name: buf lint
+        run: buf lint
+        working-directory: proto
+      - name: buf breaking-change check
+        # On a push directly to main, HEAD and the local `main` ref
+        # are the same commit by the time this runs — .git#branch=main
+        # resolves to that identical commit, so this diffs a commit
+        # against itself (not its parent) and reports no changes,
+        # regardless of what the push actually contained. The real
+        # gate is on PRs, where `main` is genuinely a different commit
+        # than the PR branch tip — it fails a change that breaks a
+        # field number, removes a still-referenced message, etc. (see
+        # proto/README.md). A breaking change pushed directly to main
+        # without going through a PR is not caught by this step.
+        run: buf breaking --against '.git#branch=main'
+        working-directory: proto
+
+  python-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Generate protobuf stubs
+        run: bash scripts/codegen.sh
+      - name: Seed item catalog (small, for test speed)
+        run: python3 scripts/seed_catalog.py --count 1000
+      - name: services/common
+        run: |
+          PYTHONPATH=gen/python:services/common \
+            python3 -m pytest services/common/tests/ -v
+      - name: services/ingestion (excludes @pytest.mark.kafka — no broker in CI)
+        run: |
+          PYTHONPATH=gen/python:services/common \
+            python3 -m pytest services/ingestion/tests/ -v
+      - name: services/live_feed
+        run: |
+          PYTHONPATH=gen/python:services/common:services/live_feed \
+            python3 -m pytest services/live_feed/tests/ -v
+      - name: warehouse (lake_writer, clickhouse_loader — logic only, no live ClickHouse)
+        run: |
+          PYTHONPATH=gen/python:warehouse/lake_writer \
+            python3 -m pytest warehouse/tests/test_lake_writer.py -v
+          PYTHONPATH=gen/python:warehouse/clickhouse_loader \
+            python3 -m pytest warehouse/tests/test_clickhouse_loader.py -v
+
+  flink-job-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install codegen deps and generate protobuf stubs
+        run: |
+          pip install -r requirements.txt
+          bash scripts/codegen.sh
+      - name: Run stream_processing tests inside the Flink image
+        # pyflink only exists inside this image (see
+        # stream_processing/tests/test_stuck_package_logic.py's
+        # docstring) — scripts/run_flink_tests.sh builds it and runs
+        # pytest inside a container, same as local dev.
+        run: bash scripts/run_flink_tests.sh
+
+  batch-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+      - name: Install batch/ dependencies
+        # Deliberately batch/requirements.txt, not the root one — see
+        # batch/thing_transfer_batch/catalog.py's module docstring for
+        # why this is a separate dependency surface (protobuf pin
+        # conflict between Dagster and the gRPC/Flink stack).
+        run: pip install -r batch/requirements.txt pytest
+      - name: Seed item catalog (small, for test speed)
+        run: python3 scripts/seed_catalog.py --count 1000
+      - name: Run batch/ tests
+        run: python3 -m pytest batch/tests/ -v
+
+  frontend-check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc -b
+      - name: Lint
+        run: npx oxlint
+      - name: Build
+        run: npm run build
+
+  docker-builds:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dockerfile: services/live_feed/Dockerfile
+            context: .
+            tag: live-feed
+          - dockerfile: stream_processing/flink_image/Dockerfile
+            context: stream_processing/flink_image
+            tag: flink-image
+          - dockerfile: batch/Dockerfile
+            context: .
+            tag: dagster
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build ${{ matrix.tag }} (no push — validates the Dockerfile builds clean, no cache)
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: false
+          no-cache: true
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

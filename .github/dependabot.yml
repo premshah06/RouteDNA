@@ -1,0 +1,40 @@
+version: 2
+updates:
+  # Root Python deps: gRPC/protobuf/PyFlink stack — see requirements.txt's
+  # own comments for the version-pin chain (protobuf==4.23.4 forced by
+  # apache-flink, grpcio-tools==1.59.0 forced by that, setuptools<81
+  # forced by that). Dependabot PRs against these three specifically
+  # will very likely fail CI by design — that's not a bug in the CI,
+  # it's the pin chain doing its job. Bumping them requires re-deriving
+  # the whole chain together, not accepting one Dependabot PR in isolation.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      pinned-chain:
+        patterns:
+          - protobuf
+          - grpcio-tools
+          - setuptools
+
+  # batch/ — separate dependency surface on purpose (see
+  # batch/requirements.txt), so it gets updated independently rather
+  # than bundled with root Python bumps.
+  - package-ecosystem: pip
+    directory: /batch
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    # protoc-gen-js's generated stubs (frontend/proto-gen) are consumed
+    # as a local package, not a registry dependency — nothing for
+    # Dependabot to bump there, so no separate entry is needed for it.
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

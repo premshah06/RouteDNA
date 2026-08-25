@@ -1,0 +1,41 @@
+# Fast local checks only — these run on every `git commit` and must
+# stay in the low-seconds range or people start reaching for
+# --no-verify. The real gate is .github/workflows/ci.yml (full test
+# suites, Docker builds, buf breaking-change check against main); this
+# file exists to catch the cheap stuff before it even reaches CI, not
+# to replace CI.
+#
+# Install once per clone: pip install pre-commit && pre-commit install
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.6
+    hooks:
+      - id: ruff
+        name: ruff (Python lint)
+        # Excludes gen/ (generated protobuf stubs, gitignored anyway)
+        # and the two separate venvs — ruff would otherwise try to
+        # lint every installed dependency under batch/.venv.
+        exclude: ^(gen/|\.venv/|batch/\.venv/|frontend/)
+
+  - repo: local
+    hooks:
+      - id: buf-lint
+        name: buf lint (proto/)
+        entry: bash -c 'cd proto && buf lint'
+        language: system
+        files: ^proto/.*\.proto$
+        pass_filenames: false
+
+      - id: oxlint
+        name: oxlint (frontend/)
+        entry: bash -c 'cd frontend && npx oxlint'
+        language: system
+        # Anything under frontend/ that could affect the lint result —
+        # not just .ts/.tsx, since a config change (.oxlintrc.json,
+        # package.json) or a .css/.js file can too. CI's frontend-check
+        # job isn't file-filtered and always catches these regardless;
+        # this hook existing to filter at all is purely so an unrelated
+        # commit elsewhere in the repo doesn't pay the oxlint cost.
+        files: ^frontend/(src/|\.oxlintrc\.json$|package\.json$)
+        pass_filenames: false
