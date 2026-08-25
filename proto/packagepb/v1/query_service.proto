@@ -1,0 +1,116 @@
+syntax = "proto3";
+
+package packagepb.v1;
+
+import "packagepb/v1/common.proto";
+import "packagepb/v1/alert.proto";
+import "packagepb/v1/item.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/example/thing-transfer/gen/packagepb/v1;packagepbv1";
+
+// QueryService answers questions LiveFeedService structurally can't:
+// history for one package, and facility-wide aggregates. Both are
+// backed by the warehouse (ClickHouse) and lake (Parquet) built in
+// Checkpoint 6/8 — this service is a thin read bridge from that data
+// to the browser, not a new system of record. Unary (not streaming)
+// RPCs throughout: each call answers "as of now," triggered by a UI
+// action (opening a journey panel, loading the Trends tab), not an
+// ongoing subscription.
+service QueryService {
+  // Scan history + alerts for one package, for the journey side panel.
+  rpc GetPackageJourney(GetPackageJourneyRequest) returns (PackageJourney);
+
+  // Facility-wide throughput/damage/alert aggregates for the Trends tab.
+  rpc GetFacilityStats(GetFacilityStatsRequest) returns (FacilityStats);
+}
+
+message GetPackageJourneyRequest {
+  string package_id = 1;
+}
+
+message PackageJourney {
+  string package_id = 1;
+
+  // One entry per scan, in scan order — read from the Parquet lake
+  // (data/lake/scan_events/), not the warehouse, since raw per-scan
+  // history at package granularity was never loaded into ClickHouse
+  // (only alerts were — see warehouse/init/01_alerts.sql).
+  repeated JourneyScan scans = 2;
+
+  // Alerts raised for this package, newest first — read from
+  // ClickHouse's `alerts` table.
+  repeated Alert alerts = 3;
+}
+
+// Flattened, lake-schema view of a scan (see
+// warehouse/lake_writer's pa.schema) rather than the full ScanEvent
+// proto — the lake never persisted ScanEvent.attributes as a map, so
+// re-wrapping in ScanEvent would imply fidelity this source doesn't have.
+message JourneyScan {
+  string event_id = 1;
+  StationType station = 2;
+  string scanner_id = 3;
+  google.protobuf.Timestamp scanned_at = 4;
+  string result = 5;
+  string damage_type = 6;
+  float damage_confidence = 7;
+}
+
+message GetFacilityStatsRequest {
+  // "today" | "week" | "month" — mirrors the Trends tab's range selector.
+  string range = 1;
+}
+
+// avg-time-to-dispatch is deliberately not included: no data source in
+// this system (streaming or batch) tracks a package's intake-to-
+// dispatch latency today, so a real number for it doesn't exist to
+// report — see daily_station_throughput/daily_damage_rate_by_category
+// in batch/thing_transfer_batch/assets.py for what actually gets
+// computed from the lake.
+message FacilityStats {
+  uint64 throughput_total = 1;
+  float damage_rate = 2;
+
+  repeated ThroughputPoint throughput_series = 3;
+  repeated StationDamageRate damage_by_station = 4;
+  repeated AlertTypeCount alert_breakdown = 5;
+  repeated HourlyCount busiest_hours = 6;
+  repeated FlaggedParcel recent_flagged = 7;
+  // From warehouse/init/03_daily_batch_reports.sql's
+  // daily_damage_rate_by_category, populated by the Dagster batch layer
+  // but previously never surfaced by this RPC.
+  repeated CategoryDamageRate damage_by_category = 8;
+}
+
+message ThroughputPoint {
+  google.protobuf.Timestamp bucket = 1;
+  uint64 count = 2;
+}
+
+message StationDamageRate {
+  StationType station = 1;
+  float damage_rate = 2;
+}
+
+message CategoryDamageRate {
+  ItemCategory item_category = 1;
+  float damage_rate = 2;
+}
+
+message AlertTypeCount {
+  AlertType alert_type = 1;
+  uint64 count = 2;
+}
+
+message HourlyCount {
+  uint32 hour = 1;
+  uint64 count = 2;
+}
+
+message FlaggedParcel {
+  string package_id = 1;
+  AlertType alert_type = 2;
+  StationType station = 3;
+  google.protobuf.Timestamp detected_at = 4;
+}

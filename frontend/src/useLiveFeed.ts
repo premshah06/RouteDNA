@@ -21,6 +21,8 @@ export interface PackagePosition {
   station: StationType;
   updatedAtMs: number;
   itemName: string;
+  itemCategory: number;
+  damageDetected: boolean;
 }
 
 export interface AlertItem {
@@ -28,6 +30,7 @@ export interface AlertItem {
   packageId: string;
   alertType: number;
   severity: number;
+  station: StationType;
   message: string;
   detectedAtMs: number;
 }
@@ -83,6 +86,8 @@ export function useLiveFeed() {
               station: p.getStation(),
               updatedAtMs: updatedAt ? updatedAt.getSeconds() * 1000 + updatedAt.getNanos() / 1e6 : Date.now(),
               itemName: p.getItemName(),
+              itemCategory: p.getItemCategory(),
+              damageDetected: p.getDamageDetected(),
             });
             return next;
           });
@@ -94,6 +99,7 @@ export function useLiveFeed() {
             packageId: a.getPackageId(),
             alertType: a.getAlertType(),
             severity: a.getSeverity(),
+            station: a.getStation(),
             message: a.getMessage(),
             detectedAtMs: detectedAt ? detectedAt.getSeconds() * 1000 + detectedAt.getNanos() / 1e6 : Date.now(),
           };

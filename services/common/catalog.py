@@ -50,6 +50,13 @@ class Catalog:
         rows = self._conn.execute("SELECT item_id, name FROM items").fetchall()
         return {row["item_id"]: row["name"] for row in rows}
 
+    def all_categories(self) -> dict[str, int]:
+        """item_id -> ItemCategory enum value, same tight-loop rationale
+        as all_names() — the live feed resolves this once per scan to
+        denormalize a display-only category onto PositionUpdate."""
+        rows = self._conn.execute("SELECT item_id, category FROM items").fetchall()
+        return {row["item_id"]: item_pb2.ItemCategory.Value(row["category"]) for row in rows}
+
     def close(self) -> None:
         self._conn.close()
 

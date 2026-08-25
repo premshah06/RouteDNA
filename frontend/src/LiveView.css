@@ -1,0 +1,61 @@
+.live-view {
+  grid-area: facility;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+.kpi-strip {
+  display: flex;
+  gap: 24px;
+  padding: 14px 20px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.kpi-value {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: proportional-nums;
+}
+
+.kpi-label {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* A contained card, not a full-bleed panel that stretches to fill
+   whatever vertical space is left — the map has a fixed aspect ratio
+   and sits centered with room around it, so tall viewports don't turn
+   each station zone into an empty vertical corridor. */
+.facility-canvas-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  overflow: auto;
+}
+
+.facility-canvas {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 1180px;
+  aspect-ratio: 1180 / 420;
+  position: relative;
+  overflow: hidden;
+}

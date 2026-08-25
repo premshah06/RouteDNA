@@ -13,6 +13,12 @@ enum StationType {
   STATION_TYPE_SORT_A = 2;
   STATION_TYPE_SORT_B = 3;
   STATION_TYPE_DISPATCH = 4;
+  // Appended after the original four (see comment above on appending,
+  // not renumbering) — fill out the facility's real linear chain:
+  // INTAKE -> INDUCTION -> SORT_A -> SORT_B -> QC_CHECK -> STAGING -> DISPATCH.
+  STATION_TYPE_INDUCTION = 5;
+  STATION_TYPE_QC_CHECK = 6;
+  STATION_TYPE_STAGING = 7;
 }
 
 // Physical dimensions in SI units. Kept as its own message (rather than

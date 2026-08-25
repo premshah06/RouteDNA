@@ -1,0 +1,129 @@
+.station-icon {
+  overflow: visible;
+}
+
+/* Base palette (normal state) — categorical steps from the app's dark
+   theme, one hue family per station so the icon reads as an identity,
+   not just a shape. */
+.intake-fill { fill: #2a78d6; }
+.intake-front { fill: #184f95; }
+.intake-side { fill: #0a2c58; }
+
+.sort-fill-left, .sort-fill-right { fill: #c9531f; }
+.sort-front-left, .sort-front-right { fill: #8f3a17; }
+.sort-side-left, .sort-side-right { fill: #4a1e0c; }
+.sort-chute-left, .sort-chute-right { fill: none; stroke: #c9531f; opacity: 0.9; }
+.icon-chute-mouth { fill: #5c250f; opacity: 0.6; }
+
+.dispatch-fill { fill: #7f72d9; }
+.dispatch-front { fill: #4f43ab; }
+.dispatch-side { fill: #241d54; }
+
+.induction-fill { fill: #199e70; }
+.induction-front { fill: #0f7a56; }
+.induction-side { fill: #0a5b3e; }
+.induction-merge { stroke: #0a3d2a; opacity: 0.7; }
+
+.qc-fill { fill: #d55181; }
+.qc-front { fill: #a83a63; }
+.qc-side { fill: #7a2a48; }
+.qc-gantry { stroke: #f4c9dc; stroke-width: 4; }
+.qc-badge { fill: #171b21; stroke: #0ca30c; stroke-width: 3; }
+.qc-check { stroke: #0ca30c; }
+
+.staging-fill { fill: #c98500; }
+.staging-front { fill: #8f5f00; }
+.staging-side { fill: #664400; }
+.staging-crate-top { fill: #f0c674; }
+.staging-crate-front { fill: #c99a4a; }
+.staging-crate-side { fill: #9c7433; }
+.staging-crate-back { fill: #d9ac5c; opacity: 0.85; }
+.staging-crate-back-side { fill: #ab7f3e; opacity: 0.85; }
+
+.icon-belt-edge {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.25);
+  stroke-width: 1;
+}
+
+.icon-rollers { fill: #0a1830; opacity: 0.55; }
+.icon-chevrons { color: #0d366b; opacity: 0.5; }
+
+.icon-arch {
+  fill: none;
+  stroke: #dfe3ea;
+  stroke-width: 5;
+  stroke-linecap: round;
+}
+
+.icon-scan-beam {
+  stroke: #5aa3f0;
+  stroke-width: 2.5;
+  animation: icon-blink 1.6s ease-in-out infinite;
+}
+
+.icon-package-top { fill: #efe6d2; }
+.icon-package-front { fill: #c9bfa8; }
+.icon-package-side { fill: #a99e85; }
+
+.icon-diverter-housing {
+  fill: #171b21;
+  stroke: #eda100;
+  stroke-width: 3;
+}
+.icon-diverter-arm { color: #eda100; }
+.icon-diverter-arm path { stroke: currentColor; }
+.icon-diverter-arm {
+  animation: icon-sweep 2.4s ease-in-out infinite;
+}
+
+.icon-truck polygon:first-child { fill: #e6e4fa; opacity: 0.92; }
+.icon-truck-cab { fill: #c7c2f2; }
+.icon-truck-wheel { fill: #171b21; stroke: #8b93a1; stroke-width: 1.5; }
+
+.icon-dispatch-arrow {
+  stroke: #e6e9ee;
+  animation: icon-blink 1.8s ease-in-out infinite;
+}
+
+.icon-glow {
+  fill: currentColor;
+  color: #3987e5;
+  opacity: 0.3;
+  transition: color 0.4s ease;
+}
+.station-icon-warning .icon-glow { color: #eda100; opacity: 0.4; }
+.station-icon-critical .icon-glow { color: #d95926; opacity: 0.5; animation: icon-glow-pulse 1.2s ease-in-out infinite; }
+
+@keyframes icon-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes icon-sweep {
+  0%, 100% { transform: rotate(var(--arm-rotate, -20deg)); }
+  50% { transform: rotate(calc(-1 * var(--arm-rotate, -20deg))); }
+}
+
+@keyframes icon-glow-pulse {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.65; }
+}
+
+/* Warning/critical states recolor the belt surface itself (not just
+   the glow) so a glance at the canvas — not just the base shadow —
+   shows which station needs attention. */
+.station-icon-warning .icon-belt-top {
+  fill: #eda100 !important;
+}
+.station-icon-warning .sort-chute-left,
+.station-icon-warning .sort-chute-right {
+  stroke: #eda100 !important;
+}
+.station-icon-critical .icon-belt-top {
+  fill: #e34948 !important;
+}
+.station-icon-critical .sort-chute-left,
+.station-icon-critical .sort-chute-right {
+  stroke: #e34948 !important;
+}

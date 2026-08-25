@@ -15,6 +15,7 @@ export default defineConfig({
     include: [
       '@thing-transfer/proto-gen/packagepb/v1/common_pb',
       '@thing-transfer/proto-gen/packagepb/v1/alert_pb',
+      '@thing-transfer/proto-gen/packagepb/v1/item_pb',
       '@thing-transfer/proto-gen/packagepb/v1/live_feed_service_pb',
       // Live_feed_serviceServiceClientPb.ts imports live_feed_service_pb
       // via a *relative* path ('../../packagepb/...'), not a bare
@@ -23,6 +24,9 @@ export default defineConfig({
       // explicitly, that relative import reaches the raw CJS file
       // (literal require() calls) directly under native ESM.
       '@thing-transfer/proto-gen/packagepb/v1/Live_feed_serviceServiceClientPb',
+      '@thing-transfer/proto-gen/packagepb/v1/query_service_pb',
+      // Same relative-import caveat as Live_feed_serviceServiceClientPb above.
+      '@thing-transfer/proto-gen/packagepb/v1/Query_serviceServiceClientPb',
     ],
   },
 })

@@ -73,13 +73,18 @@ class Broadcaster:
     client queues. Not thread-safe by design — everything here runs on
     one asyncio event loop, so no locks are needed."""
 
-    def __init__(self, item_names: Optional[dict] = None):
+    def __init__(self, item_names: Optional[dict] = None, item_categories: Optional[dict] = None):
         self.positions: dict[str, live_feed_service_pb2.PositionUpdate] = {}
         self._clients: set[asyncio.Queue] = set()
         # item_id -> name, loaded once at startup (see Catalog.all_names).
         # Missing/empty is fine — item_name just stays "" on the
         # PositionUpdate, same as a ScanEvent with no item_id attribute.
         self._item_names = item_names or {}
+        # item_id -> ItemCategory enum value, same loading rationale as
+        # item names (see Catalog.all_categories). Missing falls back to
+        # ITEM_CATEGORY_UNSPECIFIED (proto3 default), same as item_name's
+        # empty-string fallback above.
+        self._item_categories = item_categories or {}
 
     def register_client(self) -> asyncio.Queue:
         queue: asyncio.Queue = asyncio.Queue(maxsize=CLIENT_QUEUE_MAXSIZE)
@@ -118,6 +123,8 @@ class Broadcaster:
             station=event.station,
             updated_at=event.scanned_at,
             item_name=self._item_names.get(item_id, ""),
+            item_category=self._item_categories.get(item_id, 0),
+            damage_detected=(event.result == scan_event_pb2.SCAN_RESULT_DAMAGE_DETECTED),
         )
         self.positions[event.package_id] = position
         self._broadcast(live_feed_service_pb2.LiveFeedEvent(position_update=position))
@@ -185,20 +192,21 @@ class LiveFeedServicer(live_feed_service_pb2_grpc.LiveFeedServiceServicer):
             logger.info("client disconnected: %s", peer)
 
 
-def _load_item_names() -> dict[str, str]:
+def _load_catalog_lookups() -> tuple[dict[str, str], dict[str, int]]:
     try:
         catalog = Catalog()
     except FileNotFoundError:
-        logger.warning("item catalog not found — position updates will show no item name")
-        return {}
+        logger.warning("item catalog not found — position updates will show no item name/category")
+        return {}, {}
     try:
-        return catalog.all_names()
+        return catalog.all_names(), catalog.all_categories()
     finally:
         catalog.close()
 
 
 async def serve(port: int = 50052) -> None:
-    broadcaster = Broadcaster(item_names=_load_item_names())
+    item_names, item_categories = _load_catalog_lookups()
+    broadcaster = Broadcaster(item_names=item_names, item_categories=item_categories)
 
     server = grpc.aio.server()
     live_feed_service_pb2_grpc.add_LiveFeedServiceServicer_to_server(

@@ -1,0 +1,69 @@
+.package-tooltip {
+  position: fixed;
+  z-index: 200;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  min-width: 200px;
+  max-width: 260px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+  font-size: 0.78rem;
+}
+
+.package-tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.package-tooltip-icon {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.package-tooltip-name {
+  color: var(--text);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.package-tooltip-id {
+  font-family: ui-monospace, monospace;
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.package-tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-dim);
+  padding: 2px 0;
+}
+
+.package-tooltip-row span:last-child {
+  color: var(--text);
+}
+
+.package-tooltip-alert {
+  margin-top: 8px;
+  padding: 4px 8px;
+  border-radius: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.package-tooltip-alert.severity-warning { background: rgba(224, 160, 40, 0.15); color: var(--warning); }
+.package-tooltip-alert.severity-critical { background: rgba(224, 82, 82, 0.15); color: var(--critical); }
+.package-tooltip-alert.severity-info { background: rgba(77, 159, 255, 0.15); color: var(--info); }

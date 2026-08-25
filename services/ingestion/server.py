@@ -36,9 +36,12 @@ logger = logging.getLogger("ingestion")
 # and stream processing exist (Checkpoint 3+); this exists only to give
 # StreamScans something non-trivial to send back down the stream.
 _NEXT_STATION = {
-    common_pb2.STATION_TYPE_INTAKE: common_pb2.STATION_TYPE_SORT_A,
+    common_pb2.STATION_TYPE_INTAKE: common_pb2.STATION_TYPE_INDUCTION,
+    common_pb2.STATION_TYPE_INDUCTION: common_pb2.STATION_TYPE_SORT_A,
     common_pb2.STATION_TYPE_SORT_A: common_pb2.STATION_TYPE_SORT_B,
-    common_pb2.STATION_TYPE_SORT_B: common_pb2.STATION_TYPE_DISPATCH,
+    common_pb2.STATION_TYPE_SORT_B: common_pb2.STATION_TYPE_QC_CHECK,
+    common_pb2.STATION_TYPE_QC_CHECK: common_pb2.STATION_TYPE_STAGING,
+    common_pb2.STATION_TYPE_STAGING: common_pb2.STATION_TYPE_DISPATCH,
     common_pb2.STATION_TYPE_DISPATCH: common_pb2.STATION_TYPE_UNSPECIFIED,
 }
 

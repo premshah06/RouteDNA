@@ -24,8 +24,11 @@ logger = logging.getLogger("station_sim")
 
 _STATION_NAME_TO_ENUM = {
     "intake": common_pb2.STATION_TYPE_INTAKE,
+    "induction": common_pb2.STATION_TYPE_INDUCTION,
     "sort_a": common_pb2.STATION_TYPE_SORT_A,
     "sort_b": common_pb2.STATION_TYPE_SORT_B,
+    "qc_check": common_pb2.STATION_TYPE_QC_CHECK,
+    "staging": common_pb2.STATION_TYPE_STAGING,
     "dispatch": common_pb2.STATION_TYPE_DISPATCH,
 }
 

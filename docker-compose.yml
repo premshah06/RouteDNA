@@ -110,11 +110,31 @@ services:
     ports:
       - "50052:50052"
 
+  query:
+    build:
+      context: .
+      dockerfile: services/query/Dockerfile
+    container_name: thing-transfer-query
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    environment:
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: thing-transfer-local
+      LAKE_ROOT: /app/data/lake
+    volumes:
+      # Read-only: query only reads the lake for scan history, it never writes.
+      - ./data/lake:/app/data/lake:ro
+    ports:
+      - "50053:50053"
+
   envoy:
     image: envoyproxy/envoy:v1.31-latest
     container_name: thing-transfer-envoy
     depends_on:
       - live-feed
+      - query
     ports:
       - "8090:8080"  # grpc-web, browser-facing
       - "9901:9901"  # envoy admin

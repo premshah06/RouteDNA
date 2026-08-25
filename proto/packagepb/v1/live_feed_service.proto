@@ -4,6 +4,7 @@ package packagepb.v1;
 
 import "packagepb/v1/common.proto";
 import "packagepb/v1/alert.proto";
+import "packagepb/v1/item.proto";
 import "google/protobuf/timestamp.proto";
 
 option go_package = "github.com/example/thing-transfer/gen/packagepb/v1;packagepbv1";
@@ -62,4 +63,19 @@ message PositionUpdate {
   // lookup, since this is a display-only convenience field and the
   // catalog is this service's own dependency, not the client's.
   string item_name = 4;
+
+  // Same resolution path as item_name — lets the live view pick a
+  // category-appropriate icon (box/bag/electronics/etc.) for a
+  // traveling package without a second lookup. UNSPECIFIED if the
+  // source event had no item_id or the catalog lookup missed.
+  ItemCategory item_category = 5;
+
+  // True when the ScanEvent that produced this update had
+  // result == SCAN_RESULT_DAMAGE_DETECTED (see scan_event.proto).
+  // Damage today only reaches the warehouse via the batch layer
+  // (Checkpoint 8's daily_station_throughput) — no streaming job emits
+  // an ALERT_TYPE_DAMAGE alert — so this is the only live signal of
+  // damage the frontend has to compute a real-time damage rate from,
+  // rather than one that's a full day stale.
+  bool damage_detected = 6;
 }

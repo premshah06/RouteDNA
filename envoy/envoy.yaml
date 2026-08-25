@@ -33,6 +33,14 @@ static_resources:
                         max_age: "1728000"
                         expose_headers: grpc-status,grpc-message
                       routes:
+                        # gRPC's wire path is /<package>.<Service>/<Method> —
+                        # route by full service name so both backends can
+                        # share this one listener/port.
+                        - match: { prefix: "/packagepb.v1.QueryService/" }
+                          route:
+                            cluster: query_service
+                            timeout: 0s
+                            max_grpc_timeout: 0s
                         - match: { prefix: "/" }
                           route:
                             cluster: live_feed_service
@@ -67,6 +75,25 @@ static_resources:
                     socket_address:
                       address: live-feed
                       port_value: 50052
+
+    - name: query_service
+      connect_timeout: 5s
+      type: STRICT_DNS
+      lb_policy: ROUND_ROBIN
+      typed_extension_protocol_options:
+        envoy.extensions.upstreams.http.v3.HttpProtocolOptions:
+          "@type": type.googleapis.com/envoy.extensions.upstreams.http.v3.HttpProtocolOptions
+          explicit_http_config:
+            http2_protocol_options: {}
+      load_assignment:
+        cluster_name: query_service
+        endpoints:
+          - lb_endpoints:
+              - endpoint:
+                  address:
+                    socket_address:
+                      address: query
+                      port_value: 50053
 
 admin:
   address:

@@ -125,8 +125,11 @@ ALLOWED_LATENESS_MS = int(os.environ.get("ALLOWED_LATENESS_MS", 5 * 60 * 1000))
 # no skips, ending at Dispatch.
 EXPECTED_PATH = [
     common_pb2.STATION_TYPE_INTAKE,
+    common_pb2.STATION_TYPE_INDUCTION,
     common_pb2.STATION_TYPE_SORT_A,
     common_pb2.STATION_TYPE_SORT_B,
+    common_pb2.STATION_TYPE_QC_CHECK,
+    common_pb2.STATION_TYPE_STAGING,
     common_pb2.STATION_TYPE_DISPATCH,
 ]
 
