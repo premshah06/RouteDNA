@@ -121,6 +121,28 @@ services:
     volumes:
       - ./envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
 
+  dagster:
+    build:
+      context: .
+      dockerfile: batch/Dockerfile
+    container_name: thing-transfer-dagster
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    environment:
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: thing-transfer-local
+      LAKE_ROOT: /app/data/lake
+      CATALOG_DB_PATH: /app/data/catalog.db
+    volumes:
+      # Both read-only: the batch layer reads the lake and catalog, it
+      # never writes to either — all its output goes to ClickHouse.
+      - ./data/lake:/app/data/lake:ro
+      - ./data/catalog.db:/app/data/catalog.db:ro
+    ports:
+      - "3001:3000"  # 3000 avoided — commonly already bound on dev hosts
+
 volumes:
   kafka-data:
   clickhouse-data:

@@ -1,0 +1,13 @@
+# Deliberately a separate venv from the repo root (see batch/README.md):
+# Dagster pulls in protobuf>=3.20,<7 (currently resolves to a 6.x
+# release), which conflicts with the protobuf==4.23.4 pin the gRPC/
+# PyFlink stack requires. Dagster jobs only read Parquet from the lake
+# and write to ClickHouse over HTTP — no shared process or import
+# boundary with that stack — so there's no reason to fight the two
+# pins into one environment.
+dagster==1.12.1
+dagster-webserver==1.12.1
+
+pyarrow==21.0.0
+httpx==0.28.1
+pandas==2.3.3

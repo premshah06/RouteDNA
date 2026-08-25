@@ -60,6 +60,11 @@ _SCHEMA = pa.schema(
         ("result", pa.string()),
         ("damage_type", pa.string()),
         ("damage_confidence", pa.float32()),
+        # From ScanEvent.attributes["item_id"] (see station_sim/simulator.py) —
+        # empty string if absent. Carried through so the batch layer
+        # (Checkpoint 8) can join against the item catalog for
+        # category-level reporting without a second data source.
+        ("item_id", pa.string()),
     ]
 )
 
@@ -80,6 +85,7 @@ def decode_scan_event_row(raw_value: bytes) -> dict:
             else ""
         ),
         "damage_confidence": event.damage_assessment.confidence if event.result == scan_event_pb2.SCAN_RESULT_DAMAGE_DETECTED else 0.0,
+        "item_id": event.attributes.get("item_id", ""),
         "_partition": (scanned_at.strftime("%Y-%m-%d"), scanned_at.strftime("%H")),
     }
 

@@ -82,7 +82,9 @@ write to a shared `alerts` topic.
 | Catalog | **SQLite**, generated seed data | 50k realistic items so packages show names, not bare UUIDs — no external DB needed for local dev |
 | Data lake | **Parquet**, Hive-partitioned by date/hour | Full raw-event history at low storage cost; a Python consumer (not a Flink job — no windowing/joins needed for "durably persist what already exists") batches scan-events straight to disk |
 | Warehouse | **ClickHouse** | Pre-aggregated hourly rollups via a materialized view — a dashboard query never scans raw alert rows, it reads a running count that updates itself as data lands |
-| Infra | **Docker Compose** | Kafka + Flink JobManager/TaskManager + ClickHouse, one `docker compose up` |
+| Live view | **React + grpc-web + Envoy** | Genuine gRPC end-to-end, not an SSE bridge — Envoy translates grpc-web to native gRPC since browsers can't read HTTP/2 trailers; one long-lived server-streaming call pushes position updates and alerts as they happen |
+| Batch layer | **Dagster** | Daily-partitioned assets reprocess the raw Parquet lake for full-day metrics streaming shouldn't compute on the hot path (throughput, damage rate by item category) plus a reconciliation check against streaming's own output — isolated in its own virtualenv since Dagster's protobuf pin conflicts with the gRPC/Flink stack's |
+| Infra | **Docker Compose** | Kafka + Flink JobManager/TaskManager + ClickHouse + Envoy + Dagster, one `docker compose up` |
 
 ## Roadmap
 
@@ -93,6 +95,8 @@ write to a shared `alerts` topic.
 - ✅ Journey correlation (PyFlink, event-time session windows, misrouting detection)
 - ✅ Data lake + warehouse (raw events to Parquet, alerts + hourly rollups to ClickHouse)
 - ✅ Live alert/query gRPC service + frontend (grpc-web + Envoy, React facility view)
+- ✅ Batch layer (Dagster: daily throughput, damage rate by item category, lake-vs-streaming reconciliation)
+- ⏳ CI/CD and DevOps hardening
 
 ---
 

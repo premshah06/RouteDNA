@@ -11,7 +11,7 @@ from packagepb.v1 import common_pb2, scan_event_pb2
 from writer import decode_scan_event_row
 
 
-def _b64_event(station=common_pb2.STATION_TYPE_SORT_A, result=scan_event_pb2.SCAN_RESULT_OK, epoch_ms=1_700_000_000_000, **kwargs):
+def _b64_event(station=common_pb2.STATION_TYPE_SORT_A, result=scan_event_pb2.SCAN_RESULT_OK, epoch_ms=1_700_000_000_000, item_id=None, **kwargs):
     ts = Timestamp()
     ts.FromMilliseconds(epoch_ms)
     event = scan_event_pb2.ScanEvent(
@@ -25,6 +25,8 @@ def _b64_event(station=common_pb2.STATION_TYPE_SORT_A, result=scan_event_pb2.SCA
     if result == scan_event_pb2.SCAN_RESULT_DAMAGE_DETECTED:
         event.damage_assessment.damage_type = kwargs.get("damage_type", scan_event_pb2.DAMAGE_TYPE_CRUSHED)
         event.damage_assessment.confidence = kwargs.get("confidence", 0.9)
+    if item_id:
+        event.attributes["item_id"] = item_id
     return base64.b64encode(event.SerializeToString())
 
 
@@ -51,3 +53,13 @@ def test_decode_derives_partition_from_scanned_at():
     # 2023-11-14T22:13:20Z
     row = decode_scan_event_row(_b64_event(epoch_ms=1_700_000_000_000))
     assert row["_partition"] == ("2023-11-14", "22")
+
+
+def test_decode_carries_item_id_from_attributes():
+    row = decode_scan_event_row(_b64_event(item_id="item-42"))
+    assert row["item_id"] == "item-42"
+
+
+def test_decode_missing_item_id_is_empty_string():
+    row = decode_scan_event_row(_b64_event())
+    assert row["item_id"] == ""
