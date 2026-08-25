@@ -5,7 +5,7 @@
 # and write to ClickHouse over HTTP — no shared process or import
 # boundary with that stack — so there's no reason to fight the two
 # pins into one environment.
-dagster==1.12.1
+dagster==1.13.19
 dagster-webserver==1.12.1
 
 pyarrow==21.0.0
