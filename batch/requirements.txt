@@ -6,7 +6,7 @@
 # boundary with that stack — so there's no reason to fight the two
 # pins into one environment.
 dagster==1.12.1
-dagster-webserver==1.12.1
+dagster-webserver==1.13.19
 
 pyarrow==21.0.0
 httpx==0.28.1
