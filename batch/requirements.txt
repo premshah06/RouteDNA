@@ -8,6 +8,6 @@
 dagster==1.12.1
 dagster-webserver==1.12.1
 
-pyarrow==21.0.0
+pyarrow==25.0.1
 httpx==0.28.1
 pandas==2.3.3
