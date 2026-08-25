@@ -7,7 +7,7 @@ protobuf==4.23.4
 
 # grpcio (the runtime used by grpc.aio) is NOT coupled to protobuf's
 # codegen version the way grpcio-tools is — safe to stay current.
-grpcio==1.80.0
+grpcio==1.83.0
 
 # grpcio-tools is pinned old specifically because newer releases require
 # protobuf>=6.31, which conflicts with the 4.23.4 pin above. Older
