@@ -52,6 +52,10 @@ _FLAG_ALERT_TYPES = (alert_pb2.ALERT_TYPE_MISROUTING, alert_pb2.ALERT_TYPE_DAMAG
 
 _PARCEL_SORT_FIELDS = {"dwell_time", "detected_at", "package_id"}
 _LIST_PARCELS_MAX_LIMIT = 200
+# Well beyond STUCK_THRESHOLD_MS (10 min) — any flag-relevant alert for
+# a package still live in positions is recent; this just bounds the
+# alerts-table scan, not the cross-check's actual staleness judgment.
+_ALERT_LOOKBACK_MINUTES = 60
 
 
 def _set_timestamp(pb_timestamp, dt: datetime) -> None:
@@ -336,13 +340,20 @@ class QueryServicer(query_service_pb2_grpc.QueryServiceServicer):
 
         # Latest alert per (package_id, alert_type), for the flags this
         # RPC can cross-check against live state. STUCK_PACKAGE is
-        # excluded — see _FLAG_ALERT_TYPES.
+        # excluded — see _FLAG_ALERT_TYPES. Bounded to a recent window
+        # (not the full 90-day TTL): a package with no live position
+        # older than POSITION_STALE_MS has already left live_feed's
+        # positions dict entirely (see useLiveFeed.ts), so any flag
+        # candidate here is necessarily attached to a package seen
+        # recently — an unbounded scan would re-read the whole alerts
+        # table on every 15s-polled ListParcels call for no benefit.
         alert_type_names = ", ".join(f"'{alert_pb2.AlertType.Name(t)}'" for t in _FLAG_ALERT_TYPES)
         latest_alerts: dict[tuple[str, int], int] = {}
         for row in query_rows(
             "SELECT package_id, alert_type, "
             "toUnixTimestamp64Milli(argMax(detected_at, detected_at)) AS detected_at_ms "
             f"FROM alerts WHERE alert_type IN ({alert_type_names}) "
+            f"AND detected_at >= now() - INTERVAL {_ALERT_LOOKBACK_MINUTES} MINUTE "
             "GROUP BY package_id, alert_type"
         ):
             key = (row["package_id"], _alert_type_enum(row["alert_type"]))

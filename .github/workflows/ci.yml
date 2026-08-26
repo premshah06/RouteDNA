@@ -153,6 +153,9 @@ jobs:
           - dockerfile: services/live_feed/Dockerfile
             context: .
             tag: live-feed
+          - dockerfile: services/query/Dockerfile
+            context: .
+            tag: query
           - dockerfile: stream_processing/flink_image/Dockerfile
             context: stream_processing/flink_image
             tag: flink-image
