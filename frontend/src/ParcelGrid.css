@@ -1,0 +1,121 @@
+.parcel-grid {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.parcel-grid-header-row {
+  display: grid;
+  grid-template-columns: 100px 1.4fr 110px 90px 110px 90px 110px;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.parcel-grid-header-cell {
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 500;
+}
+
+.parcel-grid-header-cell.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.parcel-grid-header-cell.sortable:hover {
+  color: var(--text);
+}
+
+.parcel-grid-scroll {
+  height: 480px;
+  overflow-y: auto;
+}
+
+.parcel-grid-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: grid;
+  grid-template-columns: 100px 1.4fr 110px 90px 110px 90px 110px;
+  gap: 8px;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 0.78rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.parcel-grid-row:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.parcel-grid-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.parcel-cell-id {
+  font-family: monospace;
+  color: var(--text);
+}
+
+.parcel-cell-item {
+  color: var(--text);
+}
+
+.parcel-cell-station,
+.parcel-cell-time {
+  color: var(--text-dim);
+}
+
+.parcel-cell-dwell {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.parcel-status-badge.status-info {
+  border-color: var(--info);
+  color: var(--info);
+}
+
+.parcel-status-badge.status-warning {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.parcel-status-badge.status-critical {
+  border-color: var(--critical);
+  color: var(--critical);
+}
+
+.parcel-cell-flags {
+  display: flex;
+  gap: 4px;
+}
+
+.parcel-flag-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 0.7rem;
+}
+
+.parcel-cell-flags-empty {
+  color: var(--text-dim);
+}

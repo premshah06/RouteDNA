@@ -5,10 +5,27 @@
   background: var(--bg);
 }
 
-.floor-plan-svg {
+/* Lock React Flow down to a fixed, non-interactive diagram — this is a
+   status board meant to always show the whole facility at a glance,
+   not a graph a user pans/zooms/rearranges. */
+.floor-plan .react-flow {
+  background: var(--bg);
+  cursor: default;
+}
+
+.floor-plan .react-flow__attribution,
+.floor-plan .react-flow__controls,
+.floor-plan .react-flow__minimap {
+  display: none;
+}
+
+.floor-plan-spine-svg {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
-  display: block;
+  pointer-events: none;
+  z-index: 0;
 }
 
 .floor-plan-spine {
@@ -17,41 +34,48 @@
   stroke-linecap: round;
 }
 
-.zone-rect {
-  fill: var(--panel);
-  stroke: var(--border);
-  stroke-width: 1.5;
-  transition: stroke 0.3s ease;
-}
-
-.zone-divider {
-  stroke: var(--border);
-  stroke-width: 1;
-  opacity: 0.7;
-}
-
-.floor-plan-zone-warning .zone-rect {
-  stroke: var(--warning);
-  stroke-width: 2;
-}
-
-.floor-plan-zone-critical .zone-rect {
-  stroke: var(--critical);
-  stroke-width: 2.5;
-  animation: zone-pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes zone-pulse {
-  0%, 100% { stroke-opacity: 1; }
-  50% { stroke-opacity: 0.5; }
-}
-
 .floor-plan-zone {
   cursor: pointer;
 }
 
+.zone-rect {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: var(--panel);
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  box-sizing: border-box;
+  transition: border-color 0.3s ease;
+}
+
+.zone-divider {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 86px;
+  border-top: 1px solid var(--border);
+  opacity: 0.7;
+}
+
+.floor-plan-zone-warning .zone-rect {
+  border-color: var(--warning);
+  border-width: 2px;
+}
+
+.floor-plan-zone-critical .zone-rect {
+  border-color: var(--critical);
+  border-width: 2.5px;
+  animation: zone-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes zone-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .floor-plan-zone:hover .zone-rect {
-  stroke: var(--accent);
+  border-color: var(--accent);
 }
 
 /* Arrived here via cross-navigation from Trends (a station bar/cell
@@ -59,14 +83,34 @@
    colors above, so "you asked to look at this" never reads as "this
    station has a problem." */
 .floor-plan-zone-focused .zone-rect {
-  stroke: var(--accent);
-  stroke-width: 2.5;
-  filter: drop-shadow(0 0 6px rgba(77, 159, 255, 0.6));
+  border-color: var(--accent);
+  border-width: 2.5px;
+  /* box-shadow instead of filter: drop-shadow — drop-shadow paints
+     unclipped and, at this column density, made the focused box read
+     as visually taller/wider than its neighbors rather than as a glow
+     around a same-sized box. box-shadow's spread is easier to keep
+     tight enough that neighboring columns' spacing still reads even. */
+  box-shadow: 0 0 4px 0 rgba(77, 159, 255, 0.5);
 }
 
-/* The station icon svg hardcodes width/height=88 for its own viewBox —
-   the header's 48px foreignObject box scales it down via CSS. */
+.zone-label {
+  position: absolute;
+  top: -22px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 .floor-plan-icon-wrap {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
   width: 48px;
   height: 48px;
   display: flex;
@@ -80,28 +124,78 @@
 }
 
 .zone-count {
-  fill: var(--text);
+  position: absolute;
+  top: 62px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: var(--text);
   font-size: 15px;
   font-weight: 600;
 }
 
-/* The station name, displayed above its box rather than inside it —
-   the primary identifier for each stage of the flow. */
-.zone-label {
-  fill: var(--text);
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.floor-plan-dot-area {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 90px;
+}
+
+.floor-plan-dot {
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.floor-plan-dot-disc {
+  position: absolute;
+  inset: -6.5px;
+  border-radius: 50%;
+  background: color-mix(in srgb, currentColor 22%, transparent);
+  border: 1.2px solid color-mix(in srgb, currentColor 65%, transparent);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.floor-plan-dot:hover .floor-plan-dot-disc {
+  background: color-mix(in srgb, currentColor 40%, transparent);
+  border-color: currentColor;
+}
+
+.floor-plan-dot-glyph-svg {
+  position: relative;
+  color: currentColor;
+}
+
+.floor-plan-overflow {
+  position: absolute;
+  bottom: -8px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.floor-plan-traveler-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
 }
 
 .floor-plan-traveler {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%, -50%);
   filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.5));
 }
 
-/* Category color rides in on the parent <g>'s inline style={color} —
-   currentColor here picks it up, so each traveler/dot is tinted by
-   what kind of item it is instead of one flat accent blue. */
 .floor-plan-traveler-disc {
   fill: currentColor;
   stroke: var(--panel);
@@ -110,29 +204,4 @@
 
 .floor-plan-traveler-glyph {
   color: var(--panel);
-}
-
-.floor-plan-dot {
-  cursor: pointer;
-}
-
-.floor-plan-dot-disc {
-  fill: color-mix(in srgb, currentColor 22%, transparent);
-  stroke: color-mix(in srgb, currentColor 65%, transparent);
-  stroke-width: 1.2;
-  transition: fill 0.15s ease, stroke 0.15s ease;
-}
-
-.floor-plan-dot:hover .floor-plan-dot-disc {
-  fill: color-mix(in srgb, currentColor 40%, transparent);
-  stroke: currentColor;
-}
-
-.floor-plan-dot-glyph {
-  color: currentColor;
-}
-
-.floor-plan-overflow {
-  fill: var(--text-dim);
-  font-size: 10px;
 }

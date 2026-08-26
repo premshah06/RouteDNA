@@ -10,8 +10,36 @@
 
 .trends-tabs {
   display: flex;
+  align-items: center;
   gap: 4px;
   margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.trends-date-range {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 4px;
+}
+
+.trends-date-input {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 0.78rem;
+  color: var(--text);
+}
+
+.trends-date-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.trends-date-sep {
+  font-size: 0.75rem;
+  color: var(--text-dim);
 }
 
 .trends-tab {
@@ -121,14 +149,68 @@
 .line-chart-tooltip-label {
   font-size: 0.68rem;
   color: var(--text-dim);
+  margin-bottom: 4px;
+}
+
+.line-chart-tooltip-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-align: left;
+  padding: 1px 0;
+}
+
+.line-chart-tooltip-key {
+  width: 8px;
+  height: 2px;
+  flex-shrink: 0;
+  border-radius: 1px;
+}
+
+.line-chart-tooltip-series-value {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.line-chart-tooltip-series-name {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+}
+
+.line-chart-legend {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 8px;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.line-chart-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.line-chart-legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
 }
 
 .line-chart-single {
   height: 160px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
+  gap: 32px;
+}
+
+.line-chart-single-series {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 4px;
 }
 
@@ -295,6 +377,33 @@
 .flagged-filter:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+.trends-card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.flagged-export {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.flagged-export:hover:not(:disabled) {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.flagged-export:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .flagged-table th.sortable {

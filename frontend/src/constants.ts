@@ -63,6 +63,16 @@ export const SEVERITY_LABEL: Record<number, string> = {
   [Severity.SEVERITY_CRITICAL]: "critical",
 };
 
+// Matches proto/packagepb/v1/scan_event.proto's DamageType enum.
+export const DAMAGE_TYPE_LABEL: Record<number, string> = {
+  0: "Unspecified",
+  1: "Crushed",
+  2: "Torn",
+  3: "Wet",
+  4: "Leaking",
+  5: "Other",
+};
+
 export function timeAgo(ms: number): string {
   const seconds = Math.max(0, Math.floor((Date.now() - ms) / 1000));
   if (seconds < 5) return "just now";

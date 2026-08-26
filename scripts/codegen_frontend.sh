@@ -12,14 +12,22 @@ if ! command -v protoc-gen-grpc-web >/dev/null 2>&1; then
   exit 1
 fi
 
-WKT_FILE="$(find /opt/homebrew /usr/local -iname 'timestamp.proto' -path '*google*' 2>/dev/null | head -1)"
-if [ -z "$WKT_FILE" ]; then
-  echo "error: could not locate google/protobuf/timestamp.proto (well-known types) via protoc's install" >&2
-  exit 1
+# PROTOC_INCLUDE_DIR lets a caller (e.g. CI, or a non-Homebrew protoc
+# install) point directly at protoc's well-known-types include root
+# instead of relying on the search below, which only knows how to find
+# a Homebrew install.
+if [ -n "${PROTOC_INCLUDE_DIR:-}" ]; then
+  WKT_DIR="$PROTOC_INCLUDE_DIR"
+else
+  WKT_FILE="$(find /opt/homebrew /usr/local /usr -iname 'timestamp.proto' -path '*google*' 2>/dev/null | head -1)"
+  if [ -z "$WKT_FILE" ]; then
+    echo "error: could not locate google/protobuf/timestamp.proto (well-known types) via protoc's install — set PROTOC_INCLUDE_DIR explicitly" >&2
+    exit 1
+  fi
+  # WKT_FILE looks like .../include/google/protobuf/timestamp.proto —
+  # the proto_path root protoc needs is .../include, three dirname's up.
+  WKT_DIR="$(dirname "$(dirname "$(dirname "$WKT_FILE")")")"
 fi
-# WKT_FILE looks like .../include/google/protobuf/timestamp.proto — the
-# proto_path root protoc needs is .../include, three dirname's up.
-WKT_DIR="$(dirname "$(dirname "$(dirname "$WKT_FILE")")")"
 
 # Generated stubs live in their own local package (frontend/proto-gen/),
 # not directly under frontend/src/ — protoc-gen-js only emits CommonJS

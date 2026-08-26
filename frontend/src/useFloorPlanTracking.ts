@@ -17,6 +17,18 @@ export const TRAVEL_MS = 1400;
 // its station still shows "something just arrived here."
 export const RECENTLY_ARRIVED_MS = 4000;
 
+// Mirrors stream_processing/jobs/stuck_package_detector.py's
+// STUCK_THRESHOLD_MS — no live config endpoint exposes this value
+// ahead of an alert actually firing, so it's duplicated here (same
+// convention as TRAVEL_MS above) to flag packages trending toward a
+// STUCK alert before the backend detector itself fires one.
+const STUCK_THRESHOLD_MS = 10 * 60 * 1000;
+const AT_RISK_FRACTION = 0.8;
+// An independent, softer threshold — "running behind" is a distinct
+// signal from "about to trip a STUCK alert," not just an earlier point
+// on the same scale, so this isn't derived from STUCK_THRESHOLD_MS.
+const DELAYED_THRESHOLD_MS = 5 * 60 * 1000;
+
 export interface Traveler {
   packageId: string;
   from: StationType;
@@ -171,5 +183,16 @@ export function useFloorPlanTracking(positions: Map<string, PackagePosition>, al
     return grouped;
   }, [positions, travelers, now]);
 
-  return { now, activeTravelers, arrivals, stationState, packagesByStation };
+  const { delayedCount, atRiskCount } = useMemo(() => {
+    let delayed = 0;
+    let atRisk = 0;
+    for (const position of positions.values()) {
+      const dwell = now - position.updatedAtMs;
+      if (dwell >= STUCK_THRESHOLD_MS * AT_RISK_FRACTION && dwell < STUCK_THRESHOLD_MS) atRisk++;
+      if (dwell >= DELAYED_THRESHOLD_MS) delayed++;
+    }
+    return { delayedCount: delayed, atRiskCount: atRisk };
+  }, [positions, now]);
+
+  return { now, activeTravelers, arrivals, stationState, packagesByStation, delayedCount, atRiskCount };
 }

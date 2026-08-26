@@ -20,7 +20,22 @@ CREATE TABLE IF NOT EXISTS alerts
     station LowCardinality(String),
     message String,
     detected_at DateTime64(3),
-    inserted_at DateTime64(3) DEFAULT now64(3)
+    inserted_at DateTime64(3) DEFAULT now64(3),
+    -- Alert.detail (see proto/packagepb/v1/alert.proto) is a oneof —
+    -- only the columns matching alert_type are ever non-default for a
+    -- given row. Flattened here (rather than a nested/JSON column)
+    -- since ClickHouse's TabSeparated HTTP-insert convention (see this
+    -- loader's own docstring) is simplest with a flat row shape, and
+    -- these are the exact fields the Exception Investigation case page
+    -- needs — without them a historical alert (one not still sitting in
+    -- a browser's in-memory live feed) has no real detail to show.
+    stuck_duration_seconds Int32 DEFAULT 0,
+    threshold_seconds Int32 DEFAULT 0,
+    expected_station LowCardinality(String) DEFAULT '',
+    actual_station LowCardinality(String) DEFAULT '',
+    path_so_far Array(LowCardinality(String)) DEFAULT [],
+    damage_type LowCardinality(String) DEFAULT '',
+    damage_confidence Float32 DEFAULT 0
 )
 ENGINE = MergeTree
 PARTITION BY toYYYYMMDD(detected_at)

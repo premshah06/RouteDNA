@@ -6,7 +6,19 @@ import * as alertPb from "@thing-transfer/proto-gen/packagepb/v1/alert_pb";
 
 const { GetFacilityStatsRequest } = queryPb;
 
-export type TrendsRange = "today" | "week" | "month";
+export type TrendsRangePreset = "today" | "week" | "month";
+export interface CustomDateRange {
+  start: string; // "YYYY-MM-DD"
+  end: string; // "YYYY-MM-DD"
+}
+// Either a preset or an explicit start/end — see
+// GetFacilityStatsRequest in query_service.proto for how the server
+// resolves this (custom wins when both start/end are set).
+export type TrendsRange = TrendsRangePreset | CustomDateRange;
+
+function isCustomRange(range: TrendsRange): range is CustomDateRange {
+  return typeof range === "object";
+}
 
 export interface ThroughputPoint {
   bucketMs: number;
@@ -33,6 +45,12 @@ export interface HourlyCount {
   count: number;
 }
 
+export interface AlertTrendPoint {
+  bucketMs: number;
+  alertType: alertPb.AlertType;
+  count: number;
+}
+
 export interface FlaggedParcel {
   packageId: string;
   alertType: alertPb.AlertType;
@@ -48,6 +66,7 @@ export interface FacilityStats {
   damageByCategory: CategoryDamageRate[];
   alertBreakdown: AlertTypeCount[];
   busiestHours: HourlyCount[];
+  alertTrend: AlertTrendPoint[];
   recentFlagged: FlaggedParcel[];
 }
 
@@ -63,10 +82,18 @@ function toMs(ts: { getSeconds(): number; getNanos(): number } | undefined): num
 /** Fetches facility-wide stats for the Trends tab, refetching on an
  * interval and whenever `range` changes. Only call this while the
  * Trends tab is actually visible — pass a stable `range` and mount/
- * unmount the component to control when polling runs. */
+ * unmount the component to control when polling runs. `range` is
+ * either a preset ("today"/"week"/"month") or an explicit
+ * {start, end} custom range. */
 export function useFacilityStats(range: TrendsRange) {
   const [stats, setStats] = useState<FacilityStats | null>(null);
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
+
+  // Custom ranges are objects, so a new one is a new reference on every
+  // render even with the same dates — key the effect on the actual
+  // values instead of the object identity so this doesn't refetch on
+  // every unrelated re-render of the caller.
+  const rangeKey = isCustomRange(range) ? `${range.start}:${range.end}` : range;
 
   useEffect(() => {
     let cancelled = false;
@@ -75,7 +102,12 @@ export function useFacilityStats(range: TrendsRange) {
       setStatus("loading");
       const client = new QueryServiceClient(QUERY_URL);
       const request = new GetFacilityStatsRequest();
-      request.setRange(range);
+      if (isCustomRange(range)) {
+        request.setStartDate(range.start);
+        request.setEndDate(range.end);
+      } else {
+        request.setRange(range);
+      }
 
       client
         .getFacilityStats(request, {})
@@ -104,6 +136,11 @@ export function useFacilityStats(range: TrendsRange) {
               hour: h.getHour(),
               count: h.getCount(),
             })),
+            alertTrend: response.getAlertTrendList().map((t) => ({
+              bucketMs: toMs(t.getBucket()),
+              alertType: t.getAlertType(),
+              count: t.getCount(),
+            })),
             recentFlagged: response.getRecentFlaggedList().map((f) => ({
               packageId: f.getPackageId(),
               alertType: f.getAlertType(),
@@ -125,7 +162,8 @@ export function useFacilityStats(range: TrendsRange) {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [range]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rangeKey]);
 
   return { stats, status };
 }

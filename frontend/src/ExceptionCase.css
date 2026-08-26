@@ -1,0 +1,188 @@
+.exception-case {
+  width: min(440px, 92vw);
+  height: 100%;
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.case-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.case-icon-badge {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.case-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
+.journey-status-badge.info { background: rgba(77, 159, 255, 0.15); color: var(--info); }
+.journey-status-badge.unspecified { background: rgba(255, 255, 255, 0.08); color: var(--text-dim); }
+
+.case-detected-at {
+  margin-top: 10px;
+  font-size: 0.75rem;
+  color: var(--text-dim);
+}
+
+.case-message {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.case-detail-block {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+
+.case-detail-block h3 {
+  margin: 0 0 10px 0;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.case-detail-block h3:not(:first-child) {
+  margin-top: 16px;
+}
+
+.case-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.case-compare-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 0.82rem;
+}
+
+.case-compare-label {
+  color: var(--text-dim);
+}
+
+.case-compare-value {
+  color: var(--text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.case-compare-value.critical {
+  color: var(--critical);
+}
+
+.case-compare-track {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.case-compare-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--accent);
+  min-width: 2px;
+}
+
+.case-compare-fill.critical {
+  background: var(--critical);
+}
+
+.case-overage {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: var(--critical);
+  font-weight: 600;
+}
+
+.case-route-compare {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.case-route-label {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 2px;
+}
+
+.case-route-station {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.case-route-station.critical {
+  color: var(--critical);
+}
+
+.case-route-arrow {
+  color: var(--text-dim);
+  font-size: 1.1rem;
+}
+
+.case-path-trail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.case-path-chip {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  color: var(--text);
+}
+
+.case-image-ref {
+  font-family: ui-monospace, monospace;
+  font-size: 0.7rem;
+  color: var(--text-dim);
+}
+
+.case-full-journey-link {
+  display: block;
+  width: 100%;
+  margin-top: 24px;
+  padding: 10px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--accent);
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-align: center;
+}
+
+.case-full-journey-link:hover {
+  border-color: var(--accent);
+}

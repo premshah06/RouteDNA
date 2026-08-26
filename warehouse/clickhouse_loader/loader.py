@@ -31,7 +31,7 @@ from aiokafka import AIOKafkaConsumer
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "gen", "python"))
 
-from packagepb.v1 import alert_pb2, common_pb2  # noqa: E402
+from packagepb.v1 import alert_pb2, common_pb2, scan_event_pb2  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("clickhouse_loader")
@@ -64,9 +64,16 @@ def _resolve_station(alert: alert_pb2.Alert) -> int:
 
 
 def decode_alert_row(raw_value: bytes) -> dict:
-    """base64 text -> Alert proto -> flat dict matching alerts table columns."""
+    """base64 text -> Alert proto -> flat dict matching alerts table columns.
+
+    Alert.detail is a proto3 oneof — WhichOneof tells us which of
+    stuck_detail/damage_detail/misrouting_detail (if any) is actually
+    populated, so only that branch's columns get real values; the
+    others stay at the table's own DEFAULTs (0 / '' / []), same as an
+    alert with no detail at all (shouldn't happen in practice, but
+    proto3 makes "no oneof set" a valid wire state)."""
     alert = alert_pb2.Alert.FromString(base64.b64decode(raw_value))
-    return {
+    row = {
         "alert_id": alert.alert_id,
         "package_id": alert.package_id,
         "alert_type": alert_pb2.AlertType.Name(alert.alert_type),
@@ -74,7 +81,42 @@ def decode_alert_row(raw_value: bytes) -> dict:
         "station": common_pb2.StationType.Name(_resolve_station(alert)),
         "message": alert.message,
         "detected_at": alert.detected_at.ToMilliseconds() / 1000.0,
+        "stuck_duration_seconds": 0,
+        "threshold_seconds": 0,
+        "expected_station": "",
+        "actual_station": "",
+        "path_so_far": [],
+        "damage_type": "",
+        "damage_confidence": 0.0,
     }
+
+    which = alert.WhichOneof("detail")
+    if which == "stuck_detail":
+        row["stuck_duration_seconds"] = alert.stuck_detail.stuck_duration_seconds
+        row["threshold_seconds"] = alert.stuck_detail.threshold_seconds
+    elif which == "misrouting_detail":
+        row["expected_station"] = common_pb2.StationType.Name(alert.misrouting_detail.expected_station)
+        row["actual_station"] = common_pb2.StationType.Name(alert.misrouting_detail.actual_station)
+        row["path_so_far"] = [common_pb2.StationType.Name(s) for s in alert.misrouting_detail.path_so_far]
+    elif which == "damage_detail":
+        row["damage_type"] = scan_event_pb2.DamageType.Name(alert.damage_detail.damage_type)
+        row["damage_confidence"] = alert.damage_detail.confidence
+
+    return row
+
+
+def _esc(v) -> str:
+    return str(v).replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n")
+
+
+def _esc_array(values: list) -> str:
+    # ClickHouse's TabSeparated array literal: [elem,elem,...], each
+    # element quoted, with the same backslash escaping as any other
+    # string plus the array-literal's own special characters.
+    def esc_elem(v):
+        return str(v).replace("\\", "\\\\").replace("'", "\\'")
+
+    return "[" + ",".join(f"'{esc_elem(v)}'" for v in values) + "]"
 
 
 def rows_to_tsv(rows: list) -> str:
@@ -82,22 +124,25 @@ def rows_to_tsv(rows: list) -> str:
     (no tabs/newlines in our string fields, but escaping raw \\ and
     the delimiters themselves is still correct practice for any string
     that could contain them, e.g. a message with embedded content)."""
-
-    def esc(v):
-        return str(v).replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n")
-
     lines = []
     for row in rows:
         lines.append(
             "\t".join(
                 [
-                    esc(row["alert_id"]),
-                    esc(row["package_id"]),
-                    esc(row["alert_type"]),
-                    esc(row["severity"]),
-                    esc(row["station"]),
-                    esc(row["message"]),
+                    _esc(row["alert_id"]),
+                    _esc(row["package_id"]),
+                    _esc(row["alert_type"]),
+                    _esc(row["severity"]),
+                    _esc(row["station"]),
+                    _esc(row["message"]),
                     f"{row['detected_at']:.3f}",
+                    str(row["stuck_duration_seconds"]),
+                    str(row["threshold_seconds"]),
+                    _esc(row["expected_station"]),
+                    _esc(row["actual_station"]),
+                    _esc_array(row["path_so_far"]),
+                    _esc(row["damage_type"]),
+                    f"{row['damage_confidence']:.4f}",
                 ]
             )
         )
@@ -109,7 +154,9 @@ async def insert_batch(client: httpx.AsyncClient, rows: list) -> None:
         return
     query = (
         "INSERT INTO alerts "
-        "(alert_id, package_id, alert_type, severity, station, message, detected_at) "
+        "(alert_id, package_id, alert_type, severity, station, message, detected_at, "
+        "stuck_duration_seconds, threshold_seconds, expected_station, actual_station, "
+        "path_so_far, damage_type, damage_confidence) "
         "FORMAT TabSeparated"
     )
     resp = await client.post(

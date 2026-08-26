@@ -28,12 +28,29 @@ service LiveFeedService {
   // sends anything after the initial request — this is push-only, which
   // is why it's plain server-streaming rather than bidirectional.
   rpc Subscribe(SubscribeRequest) returns (stream LiveFeedEvent);
+
+  // Point-in-time snapshot of every currently-tracked package's
+  // position, for QueryService's ListParcels to merge with warehouse
+  // alert history — Subscribe's snapshot-then-stream shape doesn't fit
+  // a request/response caller that just wants "give me what you have
+  // right now."
+  rpc ListPositions(ListPositionsRequest) returns (ListPositionsResponse);
 }
 
 message SubscribeRequest {
   // Empty for now — every client sees the whole facility. A future
   // per-station or per-package filter would go here without breaking
   // existing clients (proto3 default-empty fields).
+}
+
+message ListPositionsRequest {
+  // Empty for now — this is an internal server-to-server call (only
+  // services/query calls it today). A future per-station filter would
+  // go here without breaking existing clients.
+}
+
+message ListPositionsResponse {
+  repeated PositionUpdate positions = 1;
 }
 
 // Exactly one of these is set per event — modeled as a oneof for the

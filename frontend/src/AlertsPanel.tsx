@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import type { AlertItem } from "./useLiveFeed";
 import type { PackagePosition } from "./useLiveFeed";
 import { ALERT_TYPE_ICON, ALERT_TYPE_LABEL, SEVERITY_LABEL, timeAgo } from "./constants";
+import { Card, CardContent } from "@/components/ui/card";
+
 import "./AlertsPanel.css";
 
 interface AlertsPanelProps {
   alerts: AlertItem[];
   positions: Map<string, PackagePosition>;
-  onSelectPackage: (packageId: string) => void;
+  onSelectAlert: (alert: AlertItem) => void;
 }
 
 const JUST_NOW_MS = 2 * 60 * 1000;
@@ -16,7 +18,7 @@ function alertKey(alert: AlertItem): string {
   return `${alert.alertId}-${alert.detectedAtMs}`;
 }
 
-function AlertsPanel({ alerts, positions, onSelectPackage }: AlertsPanelProps) {
+function AlertsPanel({ alerts, positions, onSelectAlert }: AlertsPanelProps) {
   // Committed (as of the last render this effect ran after) set of
   // alert keys already seen — only alerts absent from this set get the
   // slide-in entrance animation. Updated in an effect, not during
@@ -55,24 +57,25 @@ function AlertsPanel({ alerts, positions, onSelectPackage }: AlertsPanelProps) {
     const isNew = !knownKeys.has(key);
     const itemName = positions.get(alert.packageId)?.itemName;
     return (
-      <li
-        key={key}
-        className={`alert-item severity-${SEVERITY_LABEL[alert.severity]}${isNew ? " alert-item-enter" : ""}`}
-        onClick={() => onSelectPackage(alert.packageId)}
-      >
-        <div className="alert-icon-badge" aria-hidden="true">
-          {ALERT_TYPE_ICON[alert.alertType] ?? "?"}
-        </div>
-        <div className="alert-body">
-          <div className="alert-header">
-            <span className="alert-type">{ALERT_TYPE_LABEL[alert.alertType] ?? "Alert"}</span>
-            <span className="alert-time">{timeAgo(alert.detectedAtMs)}</span>
+      <li key={key}>
+        <Card
+          className={`alert-item severity-${SEVERITY_LABEL[alert.severity]}${isNew ? " alert-item-enter" : ""} flex-row gap-2.5 rounded-lg bg-transparent p-0 ring-0`}
+          onClick={() => onSelectAlert(alert)}
+        >
+          <div className="alert-icon-badge" aria-hidden="true">
+            {ALERT_TYPE_ICON[alert.alertType] ?? "?"}
           </div>
-          <div className="alert-message">{alert.message}</div>
-          <div className="alert-package" title={alert.packageId}>
-            {itemName || `Package ${alert.packageId.slice(0, 8)}`}
-          </div>
-        </div>
+          <CardContent className="alert-body p-0">
+            <div className="alert-header">
+              <span className="alert-type">{ALERT_TYPE_LABEL[alert.alertType] ?? "Alert"}</span>
+              <span className="alert-time">{timeAgo(alert.detectedAtMs)}</span>
+            </div>
+            <div className="alert-message">{alert.message}</div>
+            <div className="alert-package" title={alert.packageId}>
+              {itemName || `Package ${alert.packageId.slice(0, 8)}`}
+            </div>
+          </CardContent>
+        </Card>
       </li>
     );
   }

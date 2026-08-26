@@ -8,6 +8,7 @@
 
 .kpi-strip {
   display: flex;
+  flex-wrap: wrap;
   gap: 24px;
   padding: 14px 20px;
   background: var(--panel);
@@ -58,4 +59,18 @@
   aspect-ratio: 1180 / 420;
   position: relative;
   overflow: hidden;
+}
+
+.live-bottom-row {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 16px;
+  padding: 0 20px 20px;
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .live-bottom-row {
+    grid-template-columns: 1fr;
+  }
 }

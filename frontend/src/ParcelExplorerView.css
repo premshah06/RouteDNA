@@ -1,0 +1,76 @@
+.parcel-explorer {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  background: var(--bg);
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+}
+
+.parcel-explorer-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.parcel-search-input {
+  width: 280px;
+  height: 32px;
+  background: var(--panel) !important;
+  border-color: var(--border) !important;
+  color: var(--text) !important;
+  font-size: 0.8rem !important;
+}
+
+.parcel-facets {
+  display: flex;
+  gap: 6px;
+}
+
+.parcel-facet {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.parcel-facet.active {
+  color: var(--text);
+  border-color: var(--accent);
+  background: rgba(77, 159, 255, 0.1);
+}
+
+.parcel-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.parcel-pagination-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.parcel-pagination-controls button {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.78rem;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.parcel-pagination-controls button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

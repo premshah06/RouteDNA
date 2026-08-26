@@ -69,7 +69,7 @@ async def test_single_scan_gets_routed(running_server):
     assert instructions[0].package_id == "pkg-e2e-1"
     assert instructions[0].in_response_to_event_id == event.event_id
     assert instructions[0].action == routing_instruction_pb2.ROUTING_ACTION_PROCEED
-    assert instructions[0].next_station == common_pb2.STATION_TYPE_SORT_A
+    assert instructions[0].next_station == common_pb2.STATION_TYPE_INDUCTION
 
     assert len(fake_producer.published) == 1
     published_key, published_bytes = fake_producer.published[0]

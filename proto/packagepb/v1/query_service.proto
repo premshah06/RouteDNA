@@ -23,6 +23,20 @@ service QueryService {
 
   // Facility-wide throughput/damage/alert aggregates for the Trends tab.
   rpc GetFacilityStats(GetFacilityStatsRequest) returns (FacilityStats);
+
+  // Paginated, filterable snapshot of active parcels for the Parcel
+  // Explorer tab — merges LiveFeedService's current-position snapshot
+  // with ClickHouse's alert history, since neither alone can answer
+  // "is this package still stuck." A package with no live position has
+  // left the facility and is out of scope.
+  rpc ListParcels(ListParcelsRequest) returns (ListParcelsResponse);
+
+  // Historical throughput/damage/alert aggregates for one station, for
+  // the Checkpoint Operations panel — the per-station equivalent of
+  // GetFacilityStats. Live occupancy/alert-state for a station is
+  // already derivable client-side from LiveFeedService's stream, so
+  // this RPC only covers what needs a warehouse read.
+  rpc GetStationStats(GetStationStatsRequest) returns (StationStats);
 }
 
 message GetPackageJourneyRequest {
@@ -59,7 +73,15 @@ message JourneyScan {
 
 message GetFacilityStatsRequest {
   // "today" | "week" | "month" — mirrors the Trends tab's range selector.
+  // Ignored when start_date/end_date are both set.
   string range = 1;
+
+  // Explicit custom range, "YYYY-MM-DD" — both must be set to take
+  // effect (proto3's empty-string default means a request that only
+  // sets one, or neither, falls back to `range` unchanged, so existing
+  // callers that only ever set `range` are unaffected).
+  string start_date = 2;
+  string end_date = 3;
 }
 
 // avg-time-to-dispatch is deliberately not included: no data source in
@@ -81,6 +103,17 @@ message FacilityStats {
   // daily_damage_rate_by_category, populated by the Dagster batch layer
   // but previously never surfaced by this RPC.
   repeated CategoryDamageRate damage_by_category = 8;
+  // From alert_hourly_rollup (see warehouse/init/02_alert_rollups.sql)
+  // — streaming-sourced, not batch, so this stays fresh even before a
+  // Dagster run: one point per (hour, alert_type), unlike
+  // busiest_hours which collapses to hour-of-day across the whole range.
+  repeated AlertTrendPoint alert_trend = 9;
+}
+
+message AlertTrendPoint {
+  google.protobuf.Timestamp bucket = 1;
+  AlertType alert_type = 2;
+  uint64 count = 3;
 }
 
 message ThroughputPoint {
@@ -113,4 +146,86 @@ message FlaggedParcel {
   AlertType alert_type = 2;
   StationType station = 3;
   google.protobuf.Timestamp detected_at = 4;
+}
+
+message GetStationStatsRequest {
+  StationType station = 1;
+
+  // Same range/start_date/end_date semantics as
+  // GetFacilityStatsRequest — see that message's comments.
+  string range = 2;
+  string start_date = 3;
+  string end_date = 4;
+}
+
+message StationStats {
+  StationType station = 1;
+  repeated ThroughputPoint throughput_series = 2;
+  float damage_rate = 3;
+  repeated AlertTypeCount alert_breakdown = 4;
+}
+
+message ListParcelsRequest {
+  // Empty means no filter. Filters on motion-state only (see
+  // ParcelStatus) — problem flags (misrouted/damaged) are not
+  // filterable yet, only visible per-row via ParcelSummary.active_flags.
+  repeated ParcelStatus status_filter = 1;
+
+  // Server clamps to a maximum (200) regardless of what's requested.
+  uint32 limit = 2;
+  uint32 offset = 3;
+
+  // One of "dwell_time" | "detected_at" | "package_id" — validated
+  // server-side against this allowlist; an unrecognized value is
+  // rejected (INVALID_ARGUMENT), not silently defaulted, same
+  // convention as GetFacilityStats's date-range validation.
+  string sort_field = 4;
+  bool sort_desc = 5;
+
+  // No date-range fields: this RPC is about current state only
+  // (positions aren't retained historically), unlike
+  // GetFacilityStatsRequest's range/start_date/end_date.
+}
+
+message ListParcelsResponse {
+  repeated ParcelSummary parcels = 1;
+  // Total matching rows before pagination, for "page 3 of 14" UI.
+  uint32 total_count = 2;
+  // offset + len(parcels) < total_count, computed here so callers
+  // don't re-derive it from total_count/limit/offset themselves.
+  bool has_more = 3;
+}
+
+// Motion-state (this) and problem-flags (active_flags below) are kept
+// separate on purpose: a package can be both stuck (hasn't moved) and
+// damaged (a scan flagged it before it stalled) at the same time, and
+// collapsing that into one enum would force an arbitrary precedence
+// choice that hides real information from the operator grid.
+enum ParcelStatus {
+  PARCEL_STATUS_UNSPECIFIED = 0;
+  PARCEL_STATUS_IN_TRANSIT = 1;
+  PARCEL_STATUS_DELAYED = 2;
+  PARCEL_STATUS_STUCK = 3;
+}
+
+// Flattened, purpose-built row for the Parcel Explorer grid — not a
+// repackaged PositionUpdate/Alert, since this merges live position
+// state with a staleness-checked read of alert history that neither
+// source alone represents.
+message ParcelSummary {
+  string package_id = 1;
+  StationType current_station = 2;
+  google.protobuf.Timestamp last_scan_at = 3;
+  // now - last_scan_at, computed server-side so every caller sees the
+  // same number instead of each re-deriving it from a timestamp and
+  // its own clock.
+  int32 dwell_seconds = 4;
+  ParcelStatus status = 5;
+  // Misrouting/damage alerts, but only if no scan has occurred since
+  // the alert fired — an alert whose package has since moved on is
+  // stale and is not included here. See services/query/server.py's
+  // ListParcels for the cross-check.
+  repeated AlertType active_flags = 6;
+  string item_name = 7;
+  ItemCategory item_category = 8;
 }

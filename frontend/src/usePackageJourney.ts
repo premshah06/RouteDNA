@@ -5,6 +5,7 @@ import { QueryServiceClient } from "@thing-transfer/proto-gen/packagepb/v1/Query
 import * as queryPb from "@thing-transfer/proto-gen/packagepb/v1/query_service_pb";
 import * as commonPb from "@thing-transfer/proto-gen/packagepb/v1/common_pb";
 import * as alertPb from "@thing-transfer/proto-gen/packagepb/v1/alert_pb";
+import type { StuckDetail, MisroutingDetail, DamageDetail } from "./useLiveFeed";
 
 const { GetPackageJourneyRequest } = queryPb;
 
@@ -25,6 +26,9 @@ export interface JourneyAlert {
   station: commonPb.StationType;
   message: string;
   detectedAtMs: number;
+  stuckDetail?: StuckDetail;
+  misroutingDetail?: MisroutingDetail;
+  damageDetail?: DamageDetail;
 }
 
 export interface PackageJourney {
@@ -78,14 +82,38 @@ export function usePackageJourney(packageId: string | null) {
               damageType: s.getDamageType(),
               damageConfidence: s.getDamageConfidence(),
             })),
-            alerts: response.getAlertsList().map((a) => ({
-              alertId: a.getAlertId(),
-              alertType: a.getAlertType(),
-              severity: a.getSeverity(),
-              station: a.getStation(),
-              message: a.getMessage(),
-              detectedAtMs: toMs(a.getDetectedAt()),
-            })),
+            alerts: response.getAlertsList().map((a) => {
+              const item: JourneyAlert = {
+                alertId: a.getAlertId(),
+                alertType: a.getAlertType(),
+                severity: a.getSeverity(),
+                station: a.getStation(),
+                message: a.getMessage(),
+                detectedAtMs: toMs(a.getDetectedAt()),
+              };
+              if (a.hasStuckDetail()) {
+                const d = a.getStuckDetail()!;
+                item.stuckDetail = {
+                  stuckDurationSeconds: d.getStuckDurationSeconds(),
+                  thresholdSeconds: d.getThresholdSeconds(),
+                };
+              } else if (a.hasMisroutingDetail()) {
+                const d = a.getMisroutingDetail()!;
+                item.misroutingDetail = {
+                  expectedStation: d.getExpectedStation(),
+                  actualStation: d.getActualStation(),
+                  pathSoFar: d.getPathSoFarList(),
+                };
+              } else if (a.hasDamageDetail()) {
+                const d = a.getDamageDetail()!;
+                item.damageDetail = {
+                  damageType: d.getDamageType(),
+                  confidence: d.getConfidence(),
+                  imageRef: d.getImageRef(),
+                };
+              }
+              return item;
+            }),
           });
           setStatus("loaded");
         })

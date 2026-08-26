@@ -1,0 +1,82 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* shadcn's own base stylesheet and Geist font are deliberately not
+   imported here — both ship their own default light/dark OKLCH
+   palette and font stack, which would compete with this app's
+   existing dark-only theme (App.css's :root) instead of reusing it.
+   Everything shadcn's generated components need (--background, --card,
+   --border, etc.) is defined below, pointed at the app's real tokens. */
+
+@custom-variant dark (&:is(.dark *));
+
+/* Single source of truth: shadcn's role variables (the names its
+   generated components under src/components/ui/ actually reference)
+   point directly at this app's existing dark-theme custom properties
+   (defined once in App.css's :root), not a separate palette. A
+   Tailwind utility class (bg-card, text-muted-foreground, etc.) and
+   the existing hand-rolled CSS resolve to the exact same color, so
+   introducing Tailwind incrementally never creates a visual seam
+   between the two systems. This app is dark-only (see App.css — no
+   light-mode block exists), so there's no separate .dark block: these
+   apply unconditionally. */
+:root {
+  --background: var(--bg);
+  --foreground: var(--text);
+  --card: var(--panel);
+  --card-foreground: var(--text);
+  --popover: var(--panel);
+  --popover-foreground: var(--text);
+  --primary: var(--accent);
+  --primary-foreground: var(--text);
+  --secondary: var(--panel);
+  --secondary-foreground: var(--text);
+  --muted: var(--panel);
+  --muted-foreground: var(--text-dim);
+  --accent: var(--panel);
+  --accent-foreground: var(--text);
+  --destructive: var(--critical);
+  --border: var(--border);
+  --input: var(--border);
+  --ring: var(--accent);
+  --radius: 8px;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  /* Direct aliases for this app's own status colors, not part of
+     shadcn's default role set — used the same way --color-destructive
+     is, e.g. className="text-warning". */
+  --color-warning: var(--warning);
+  --color-critical: var(--critical);
+  --color-info: var(--info);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+}

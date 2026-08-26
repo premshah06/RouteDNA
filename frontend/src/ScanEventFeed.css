@@ -1,0 +1,64 @@
+.scan-event-feed {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.scan-event-feed h3 {
+  margin: 0 0 10px 0;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.scan-event-feed-scroll {
+  height: 220px;
+  overflow-y: auto;
+}
+
+.scan-event-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: grid;
+  grid-template-columns: 64px 72px 90px 1fr 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 2px;
+  font-size: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.scan-event-time {
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.scan-event-package {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.scan-event-station {
+  color: var(--text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scan-event-item {
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.scan-event-damage {
+  color: var(--warning);
+}

@@ -6,6 +6,7 @@ x-flink-common: &flink-common
   volumes:
     - ./gen/python:/opt/flink/usrlib/gen/python:ro
     - ./stream_processing/jobs:/opt/flink/usrlib/jobs:ro
+    - ./services/common:/opt/flink/usrlib/services/common:ro
 
 services:
   kafka:
@@ -118,11 +119,14 @@ services:
     depends_on:
       clickhouse:
         condition: service_healthy
+      live-feed:
+        condition: service_started
     environment:
       CLICKHOUSE_URL: http://clickhouse:8123
       CLICKHOUSE_USER: default
       CLICKHOUSE_PASSWORD: thing-transfer-local
       LAKE_ROOT: /app/data/lake
+      LIVE_FEED_URL: live-feed:50052
     volumes:
       # Read-only: query only reads the lake for scan history, it never writes.
       - ./data/lake:/app/data/lake:ro

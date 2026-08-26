@@ -28,11 +28,11 @@ def _event(station, result=scan_event_pb2.SCAN_RESULT_OK, damage_type=None):
     return ev
 
 
-def test_intake_ok_routes_to_sort_a():
+def test_intake_ok_routes_to_induction():
     instr = route_for(_event(common_pb2.STATION_TYPE_INTAKE))
     assert instr.action == routing_instruction_pb2.ROUTING_ACTION_PROCEED
-    assert instr.next_station == common_pb2.STATION_TYPE_SORT_A
-    assert instr.next_lane_id == "lane-SORT_A-1"
+    assert instr.next_station == common_pb2.STATION_TYPE_INDUCTION
+    assert instr.next_lane_id == "lane-INDUCTION-1"
     assert instr.in_response_to_event_id == "evt-1"
     assert instr.package_id == "pkg-1"
 

@@ -108,21 +108,41 @@ jobs:
 
   frontend-check:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: frontend
     steps:
       - uses: actions/checkout@v4
+      - uses: arduino/setup-protoc@v3
+        with:
+          version: "35.1"
+      - name: Install protoc-gen-grpc-web
+        # No apt package exists for this — grpc-web ships prebuilt
+        # release binaries instead. Pinned to match the version this
+        # repo's frontend proto-gen output was generated against.
+        run: |
+          curl -sSL -o /usr/local/bin/protoc-gen-grpc-web \
+            https://github.com/grpc/grpc-web/releases/download/2.0.2/protoc-gen-grpc-web-2.0.2-linux-x86_64
+          chmod +x /usr/local/bin/protoc-gen-grpc-web
+      - name: Generate grpc-web stubs
+        # frontend/proto-gen/ is gitignored (a build artifact, not
+        # checked-in source — see .gitignore) — every frontend-check run
+        # needs to regenerate it itself, same as a local dev checkout
+        # would via scripts/codegen_frontend.sh.
+        run: |
+          PROTOC_INCLUDE_DIR="$(dirname "$(which protoc)")/../include" \
+            bash scripts/codegen_frontend.sh
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
       - run: npm ci
+        working-directory: frontend
       - name: Typecheck
         run: npx tsc -b
+        working-directory: frontend
       - name: Lint
         run: npx oxlint
+        working-directory: frontend
       - name: Build
         run: npm run build
+        working-directory: frontend
 
   docker-builds:
     runs-on: ubuntu-latest

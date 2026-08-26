@@ -1,187 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useFacilityStats, type TrendsRange } from "./useFacilityStats";
+import { useFacilityStats, type TrendsRange, type TrendsRangePreset, type FlaggedParcel } from "./useFacilityStats";
 import { ALERT_TYPE_LABEL, ITEM_CATEGORY_LABEL, STATION_LABEL, type StationType, timeAgo } from "./constants";
+import { Button } from "@/components/ui/button";
+import { BarChart, LineChart, MultiLineChart, Histogram, SERIES } from "./charts";
 import "./TrendsView.css";
 
-// Dark-mode categorical steps from this app's design system (see
-// dataviz skill's references/palette.md) — first N slots in fixed
-// order, never reassigned per-filter.
-const SERIES = ["#3987e5", "#d95926", "#199e70", "#c98500"];
-
-function BarChart({
-  data,
-  valueFmt,
-  emptyHint,
-  onBarClick,
-}: {
-  data: { label: string; value: number }[];
-  valueFmt: (v: number) => string;
-  emptyHint?: string;
-  onBarClick?: (label: string) => void;
-}) {
-  const max = Math.max(...data.map((d) => d.value), 0.0001);
-  return (
-    <div className="bar-chart">
-      {data.map((d, i) => (
-        <div
-          key={d.label}
-          className={`bar-row${onBarClick ? " bar-row-clickable" : ""}`}
-          onClick={onBarClick ? () => onBarClick(d.label) : undefined}
-        >
-          <div className="bar-label">{d.label}</div>
-          <div className="bar-track">
-            <div
-              className="bar-fill"
-              style={{ width: `${(d.value / max) * 100}%`, background: SERIES[i % SERIES.length] }}
-            />
-          </div>
-          <div className="bar-value">{valueFmt(d.value)}</div>
-        </div>
-      ))}
-      {data.length === 0 && <div className="chart-empty">{emptyHint ?? "No data yet"}</div>}
-    </div>
-  );
-}
-
-interface LineChartProps {
-  points: { label: string; value: number }[];
-  emptyHint?: string;
-}
-
-function LineChart({ points, emptyHint }: LineChartProps) {
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-
-  if (points.length === 0) return <div className="chart-empty">{emptyHint ?? "No data yet"}</div>;
-  // A single point has nothing to connect — a line/area chart of one
-  // dot reads as a rendering bug, not "one day of data." Show it as a
-  // labeled figure instead, same idea as this skill's stat-tile contract.
-  if (points.length === 1) {
-    return (
-      <div className="line-chart-single">
-        <span className="line-chart-single-value">{points[0].value.toLocaleString()}</span>
-        <span className="line-chart-single-label">{points[0].label}</span>
-      </div>
-    );
-  }
-  const width = 600;
-  const height = 160;
-  const padding = 8;
-  const max = Math.max(...points.map((p) => p.value), 1);
-  const stepX = points.length > 1 ? (width - padding * 2) / (points.length - 1) : 0;
-
-  const coords = points.map((p, i) => ({
-    x: padding + i * stepX,
-    y: height - padding - (p.value / max) * (height - padding * 2),
-  }));
-
-  const linePath = coords.map((c, i) => `${i === 0 ? "M" : "L"}${c.x},${c.y}`).join(" ");
-  const areaPath = `${linePath} L${coords[coords.length - 1].x},${height - padding} L${coords[0].x},${height - padding} Z`;
-
-  const handleMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    const relX = ((e.clientX - rect.left) / rect.width) * width;
-    // Crosshair snaps to the nearest data position, per the dataviz
-    // skill's interaction rules — readers aim at a date, not a pixel.
-    let nearest = 0;
-    let nearestDist = Infinity;
-    coords.forEach((c, i) => {
-      const dist = Math.abs(c.x - relX);
-      if (dist < nearestDist) {
-        nearestDist = dist;
-        nearest = i;
-      }
-    });
-    setHoverIdx(nearest);
-  };
-
-  const hovered = hoverIdx !== null ? { point: points[hoverIdx], coord: coords[hoverIdx] } : null;
-
-  return (
-    <div className="line-chart-wrap">
-      <svg
-        className="line-chart"
-        viewBox={`0 0 ${width} ${height}`}
-        preserveAspectRatio="none"
-        onMouseMove={handleMove}
-        onMouseLeave={() => setHoverIdx(null)}
-      >
-        <path d={areaPath} fill={SERIES[0]} opacity={0.1} stroke="none" />
-        <path d={linePath} fill="none" stroke={SERIES[0]} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-        {coords.map((c, i) => (
-          <circle key={i} cx={c.x} cy={c.y} r={4} fill={SERIES[0]} stroke="var(--panel)" strokeWidth={2} />
-        ))}
-        {hovered && (
-          <line
-            className="line-chart-crosshair"
-            x1={hovered.coord.x}
-            x2={hovered.coord.x}
-            y1={0}
-            y2={height}
-          />
-        )}
-        {hovered && (
-          <circle cx={hovered.coord.x} cy={hovered.coord.y} r={6} className="line-chart-hover-dot" />
-        )}
-      </svg>
-      {hovered && (
-        <div
-          className="line-chart-tooltip"
-          style={{ left: `${(hovered.coord.x / width) * 100}%` }}
-        >
-          <div className="line-chart-tooltip-value">{hovered.point.value.toLocaleString()}</div>
-          <div className="line-chart-tooltip-label">{hovered.point.label}</div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Histogram({ data, valueFmt }: { data: { label: string; value: number }[]; valueFmt: (v: number) => string }) {
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-  const max = Math.max(...data.map((d) => d.value), 1);
-  return (
-    <div className="histogram">
-      {data.map((d, i) => (
-        <div
-          key={d.label}
-          className="histogram-col"
-          onMouseEnter={() => setHoverIdx(i)}
-          onMouseLeave={() => setHoverIdx(null)}
-        >
-          {hoverIdx === i && (
-            <div className="histogram-tooltip">
-              {valueFmt(d.value)} · {d.label}
-            </div>
-          )}
-          <div className="histogram-bar-track">
-            <div
-              className={`histogram-bar${hoverIdx === i ? " histogram-bar-hover" : ""}${d.value === 0 ? " histogram-bar-zero" : ""}`}
-              // A non-zero hour with a tiny share of the max still gets
-              // a visible sliver (min 3%) rather than rounding to
-              // invisible next to one dominant hour — zero stays truly
-              // flat so "no traffic" and "a little traffic" stay
-              // visually distinct.
-              style={{ height: d.value === 0 ? "2px" : `${Math.max(3, (d.value / max) * 100)}%` }}
-            />
-          </div>
-          <div className="histogram-label">{d.label}</div>
-        </div>
-      ))}
-      {data.every((d) => d.value === 0) && <div className="chart-empty histogram-empty">No data yet</div>}
-    </div>
-  );
-}
-
-const RANGE_TABS: { key: TrendsRange; label: string }[] = [
+const RANGE_TABS: { key: TrendsRangePreset; label: string }[] = [
   { key: "today", label: "Today" },
   { key: "week", label: "This week" },
   { key: "month", label: "This month" },
 ];
 
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
 type SortKey = "time" | "station" | "issue";
 
 interface TrendsViewProps {
-  onOpenJourney: (packageId: string) => void;
+  onOpenJourney: (parcel: FlaggedParcel) => void;
   focusedStation: StationType | null;
   onFocusStation: (station: StationType) => void;
   onClearFocus: () => void;
@@ -197,6 +34,9 @@ function stationTypeForLabel(label: string): StationType | undefined {
 
 function TrendsView({ onOpenJourney, focusedStation, onFocusStation, onClearFocus }: TrendsViewProps) {
   const [range, setRange] = useState<TrendsRange>("today");
+  const [isCustom, setIsCustom] = useState(false);
+  const [customStart, setCustomStart] = useState(todayIso());
+  const [customEnd, setCustomEnd] = useState(todayIso());
   const { stats, status } = useFacilityStats(range);
   const [filterText, setFilterText] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("time");
@@ -243,6 +83,34 @@ function TrendsView({ onOpenJourney, focusedStation, onFocusStation, onClearFocu
     return sorted;
   }, [stats, filterText, sortKey, sortDir]);
 
+  function exportCsv() {
+    // Exports exactly what's on screen — the currently filtered/sorted
+    // rows, same array the table renders from — not a fresh unfiltered
+    // fetch, so the file matches what the user was just looking at.
+    const header = ["Parcel ID", "Issue", "Station", "Detected At"];
+    const csvEscape = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const lines = [
+      header.map(csvEscape).join(","),
+      ...flaggedRows.map((f) =>
+        [
+          f.packageId,
+          ALERT_TYPE_LABEL[f.alertType] ?? "Alert",
+          STATION_LABEL[f.station] ?? "",
+          new Date(f.detectedAtMs).toISOString(),
+        ]
+          .map(csvEscape)
+          .join(",")
+      ),
+    ];
+    const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `flagged-parcels-${todayIso()}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
       setSortDir((d) => (d === 1 ? -1 : 1));
@@ -263,8 +131,9 @@ function TrendsView({ onOpenJourney, focusedStation, onFocusStation, onClearFocu
         {RANGE_TABS.map((tab) => (
           <button
             key={tab.key}
-            className={`trends-tab${range === tab.key ? " active" : ""}`}
+            className={`trends-tab${!isCustom && range === tab.key ? " active" : ""}`}
             onClick={() => {
+              setIsCustom(false);
               setRange(tab.key);
               if (focusedStation) onClearFocus();
             }}
@@ -272,6 +141,42 @@ function TrendsView({ onOpenJourney, focusedStation, onFocusStation, onClearFocu
             {tab.label}
           </button>
         ))}
+        <button
+          className={`trends-tab${isCustom ? " active" : ""}`}
+          onClick={() => {
+            setIsCustom(true);
+            setRange({ start: customStart, end: customEnd });
+            if (focusedStation) onClearFocus();
+          }}
+        >
+          Custom
+        </button>
+        {isCustom && (
+          <div className="trends-date-range">
+            <input
+              type="date"
+              className="trends-date-input"
+              value={customStart}
+              max={customEnd}
+              onChange={(e) => {
+                setCustomStart(e.target.value);
+                setRange({ start: e.target.value, end: customEnd });
+              }}
+            />
+            <span className="trends-date-sep">to</span>
+            <input
+              type="date"
+              className="trends-date-input"
+              value={customEnd}
+              min={customStart}
+              max={todayIso()}
+              onChange={(e) => {
+                setCustomEnd(e.target.value);
+                setRange({ start: customStart, end: e.target.value });
+              }}
+            />
+          </div>
+        )}
       </div>
 
       {status === "loading" && !stats && <div className="chart-empty">Loading trends…</div>}
@@ -287,6 +192,32 @@ function TrendsView({ onOpenJourney, focusedStation, onFocusStation, onClearFocu
                 value: p.count,
               }))}
               emptyHint="No batch report for this range yet — the daily throughput job hasn't run."
+            />
+          </section>
+
+          <section className="trends-card trends-card-wide">
+            <h3>Alerts over time</h3>
+            <MultiLineChart
+              series={(() => {
+                const byType = new Map<number, { bucketMs: number; count: number }[]>();
+                for (const t of stats.alertTrend) {
+                  if (!byType.has(t.alertType)) byType.set(t.alertType, []);
+                  byType.get(t.alertType)!.push({ bucketMs: t.bucketMs, count: t.count });
+                }
+                const buckets = Array.from(new Set(stats.alertTrend.map((t) => t.bucketMs))).sort((a, b) => a - b);
+                return Array.from(byType.entries()).map(([alertType, points], i) => {
+                  const byBucket = new Map(points.map((p) => [p.bucketMs, p.count]));
+                  return {
+                    name: ALERT_TYPE_LABEL[alertType] ?? "Unknown",
+                    color: SERIES[i % SERIES.length],
+                    points: buckets.map((b) => ({
+                      label: new Date(b).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric" }),
+                      value: byBucket.get(b) ?? 0,
+                    })),
+                  };
+                });
+              })()}
+              emptyHint="No alerts in this range yet."
             />
           </section>
 
@@ -349,16 +280,27 @@ function TrendsView({ onOpenJourney, focusedStation, onFocusStation, onClearFocu
           <section className="trends-card trends-card-wide">
             <div className="trends-card-header-row">
               <h3>Recent flagged parcels</h3>
-              <input
-                className="flagged-filter"
-                type="text"
-                placeholder="Filter by parcel, issue, or station…"
-                value={filterText}
-                onChange={(e) => {
-                  setFilterText(e.target.value);
-                  if (focusedStation) onClearFocus();
-                }}
-              />
+              <div className="trends-card-header-actions">
+                <input
+                  className="flagged-filter"
+                  type="text"
+                  placeholder="Filter by parcel, issue, or station…"
+                  value={filterText}
+                  onChange={(e) => {
+                    setFilterText(e.target.value);
+                    if (focusedStation) onClearFocus();
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flagged-export"
+                  onClick={exportCsv}
+                  disabled={flaggedRows.length === 0}
+                >
+                  Export CSV
+                </Button>
+              </div>
             </div>
             <div className="flagged-table-scroll">
             <table className="flagged-table">
@@ -387,7 +329,7 @@ function TrendsView({ onOpenJourney, focusedStation, onFocusStation, onClearFocu
                     </td>
                     <td>{timeAgo(f.detectedAtMs)}</td>
                     <td>
-                      <button className="flagged-open" onClick={() => onOpenJourney(f.packageId)}>
+                      <button className="flagged-open" onClick={() => onOpenJourney(f)}>
                         Open →
                       </button>
                     </td>

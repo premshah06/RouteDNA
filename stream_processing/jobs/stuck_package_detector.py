@@ -51,17 +51,16 @@ from pyflink.datastream.functions import KeyedProcessFunction, RuntimeContext
 from pyflink.datastream.state import ValueStateDescriptor
 
 sys.path.insert(0, "/opt/flink/usrlib/gen/python")
+sys.path.insert(0, "/opt/flink/usrlib/services/common")
 
 from packagepb.v1 import alert_pb2, common_pb2, scan_event_pb2  # noqa: E402
+from thresholds import STUCK_THRESHOLD_MS  # noqa: E402
 
 logger = logging.getLogger("stuck_package_detector")
 
 SOURCE_TOPIC = "scan-events"
 SINK_TOPIC = "alerts"
 KAFKA_BOOTSTRAP = "kafka:19092"  # in-network hostname, not localhost:9092
-# Overridable via env for fast local/CI verification (waiting out a real
-# 10-minute window isn't practical to test); production default is 10min.
-STUCK_THRESHOLD_MS = int(os.environ.get("STUCK_THRESHOLD_MS", 10 * 60 * 1000))
 MAX_OUT_OF_ORDERNESS_MS = 30 * 1000  # tolerate scans arriving up to 30s late
 # How long a Kafka partition can go quiet before it's excluded from the
 # watermark-minimum calculation (see with_idleness usage below).
@@ -228,5 +227,6 @@ if __name__ == "__main__":
     # ModuleNotFoundError even though the same import works fine here in
     # the submitting process.
     env.add_python_file("/opt/flink/usrlib/gen/python")
+    env.add_python_file("/opt/flink/usrlib/services/common")
     build_job(env)
     env.execute("stuck-package-detector")

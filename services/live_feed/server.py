@@ -191,6 +191,11 @@ class LiveFeedServicer(live_feed_service_pb2_grpc.LiveFeedServiceServicer):
             self._broadcaster.unregister_client(queue)
             logger.info("client disconnected: %s", peer)
 
+    async def ListPositions(self, request, context):
+        return live_feed_service_pb2.ListPositionsResponse(
+            positions=list(self._broadcaster.positions.values())
+        )
+
 
 def _load_catalog_lookups() -> tuple[dict[str, str], dict[str, int]]:
     try:
