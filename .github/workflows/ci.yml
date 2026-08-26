@@ -28,6 +28,14 @@ jobs:
         run: buf lint
         working-directory: proto
       - name: buf breaking-change check
+        # .git#branch=main is resolved relative to this step's cwd
+        # (working-directory: proto below), but the actual .git dir is
+        # one level up at the repo root — plain '.git#branch=main'
+        # fails with "does not appear to be a git repository" from
+        # inside proto/. '../.git#branch=main,subdir=proto' points at
+        # the real .git location while still diffing only the proto/
+        # subtree, matching what `buf lint` above already scopes to.
+        #
         # On a push directly to main, HEAD and the local `main` ref
         # are the same commit by the time this runs — .git#branch=main
         # resolves to that identical commit, so this diffs a commit
@@ -38,7 +46,7 @@ jobs:
         # field number, removes a still-referenced message, etc. (see
         # proto/README.md). A breaking change pushed directly to main
         # without going through a PR is not caught by this step.
-        run: buf breaking --against '.git#branch=main'
+        run: buf breaking --against '../.git#branch=main,subdir=proto'
         working-directory: proto
 
   python-tests:
@@ -121,6 +129,17 @@ jobs:
           curl -sSL -o /usr/local/bin/protoc-gen-grpc-web \
             https://github.com/grpc/grpc-web/releases/download/2.0.2/protoc-gen-grpc-web-2.0.2-linux-x86_64
           chmod +x /usr/local/bin/protoc-gen-grpc-web
+      - name: Install protoc-gen-js
+        # codegen_frontend.sh's --js_out needs this separate plugin
+        # (from the protocol-buffers-javascript project) in addition to
+        # protoc-gen-grpc-web above — same "no apt package, use the
+        # prebuilt release binary" story. Pinned to match local dev
+        # (Homebrew's protoc-gen-js 4.0.2).
+        run: |
+          curl -sSL -o /tmp/protoc-gen-js.tar.gz \
+            https://github.com/protocolbuffers/protobuf-javascript/releases/download/v4.0.0/protobuf-javascript-4.0.0-linux-x86_64.tar.gz
+          tar -xzf /tmp/protoc-gen-js.tar.gz -C /tmp
+          install /tmp/bin/protoc-gen-js /usr/local/bin/protoc-gen-js
       - name: Generate grpc-web stubs
         # frontend/proto-gen/ is gitignored (a build artifact, not
         # checked-in source — see .gitignore) — every frontend-check run
@@ -164,6 +183,18 @@ jobs:
             tag: dagster
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+      - name: Install codegen deps and generate protobuf stubs
+        # gen/python is gitignored (a build artifact — see
+        # scripts/codegen.sh's own comment) so a clean checkout never
+        # has it; services/live_feed/Dockerfile and services/query/Dockerfile
+        # both COPY it in, so it has to exist before docker build runs
+        # here, same as python-tests/flink-job-tests already do.
+        run: |
+          pip install -r requirements.txt
+          bash scripts/codegen.sh
       - uses: docker/setup-buildx-action@v3
       - name: Build ${{ matrix.tag }} (no push — validates the Dockerfile builds clean, no cache)
         uses: docker/build-push-action@v6
