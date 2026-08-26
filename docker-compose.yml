@@ -164,9 +164,41 @@ services:
       # never writes to either — all its output goes to ClickHouse.
       - ./data/lake:/app/data/lake:ro
       - ./data/catalog.db:/app/data/catalog.db:ro
+      # Shared with dagster-daemon below — DAGSTER_HOME's run/event-log/
+      # schedule SQLite storage has to be the same instance for both
+      # processes, or the daemon's schedule ticks and the webserver's
+      # view of runs diverge into two separate instances.
+      - dagster-home:/app/dagster_home
     ports:
       - "3001:3000"  # 3000 avoided — commonly already bound on dev hosts
+
+  # Runs daily_batch_schedule (thing_transfer_batch/__init__.py, 00:30
+  # UTC) — the webserver alone only serves the UI/GraphQL API and never
+  # executes anything on its own; the daemon is the process that
+  # actually watches schedules/sensors and launches runs. Same image,
+  # same code/data mounts, same DAGSTER_HOME as the webserver above so
+  # they operate as one instance.
+  dagster-daemon:
+    build:
+      context: .
+      dockerfile: batch/Dockerfile
+    container_name: thing-transfer-dagster-daemon
+    command: dagster-daemon run
+    depends_on:
+      clickhouse:
+        condition: service_healthy
+    environment:
+      CLICKHOUSE_URL: http://clickhouse:8123
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: thing-transfer-local
+      LAKE_ROOT: /app/data/lake
+      CATALOG_DB_PATH: /app/data/catalog.db
+    volumes:
+      - ./data/lake:/app/data/lake:ro
+      - ./data/catalog.db:/app/data/catalog.db:ro
+      - dagster-home:/app/dagster_home
 
 volumes:
   kafka-data:
   clickhouse-data:
+  dagster-home:

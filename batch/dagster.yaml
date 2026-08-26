@@ -1,0 +1,22 @@
+# Dagster instance config. Both dagster-webserver and dagster-daemon
+# read this from DAGSTER_HOME (see batch/Dockerfile) — the daemon is
+# what actually watches schedules and launches runs; the webserver
+# alone (this project's setup before this file existed) only serves
+# the UI/GraphQL API and never executes anything on its own, which is
+# why daily_batch_schedule (defined in thing_transfer_batch/__init__.py)
+# was never actually firing.
+#
+# Defaults for everything not set here (run storage, event log storage,
+# etc.) are SQLite files under DAGSTER_HOME — fine for this project's
+# single-instance local/demo scale, no external DB needed.
+
+run_coordinator:
+  module: dagster.core.run_coordinator
+  class: QueuedRunCoordinator
+
+run_launcher:
+  module: dagster
+  class: DefaultRunLauncher
+
+telemetry:
+  enabled: false
