@@ -16,7 +16,7 @@ jobs:
   proto-lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           # .git#branch=main needs real branch history to resolve
           # against, not actions/checkout's default shallow clone — a
@@ -44,7 +44,7 @@ jobs:
   python-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.9"
@@ -76,7 +76,7 @@ jobs:
   flink-job-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install codegen deps and generate protobuf stubs
         run: |
           pip install -r requirements.txt
@@ -91,7 +91,7 @@ jobs:
   batch-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v5
         with:
           python-version: "3.9"
@@ -109,7 +109,7 @@ jobs:
   frontend-check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: arduino/setup-protoc@v3
         with:
           version: "35.1"
@@ -163,7 +163,7 @@ jobs:
             context: .
             tag: dagster
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v3
       - name: Build ${{ matrix.tag }} (no push — validates the Dockerfile builds clean, no cache)
         uses: docker/build-push-action@v6
@@ -176,7 +176,7 @@ jobs:
   secret-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v2
