@@ -10,4 +10,4 @@ dagster-webserver==1.12.1
 
 pyarrow==21.0.0
 httpx==0.28.1
-pandas==2.3.3
+pandas==3.0.5
