@@ -3,7 +3,7 @@
 # apache-beam, which caps protobuf<4.24.0. Every generated *_pb2.py stub
 # under gen/python must be built with a toolchain targeting this same
 # runtime or grpc.aio and PyFlink jobs read incompatible wire formats.
-protobuf==4.23.4
+protobuf==7.36.0
 
 # grpcio (the runtime used by grpc.aio) is NOT coupled to protobuf's
 # codegen version the way grpcio-tools is — safe to stay current.
@@ -13,8 +13,8 @@ grpcio==1.80.0
 # protobuf>=6.31, which conflicts with the 4.23.4 pin above. Older
 # grpcio-tools needs pkg_resources (removed from setuptools>=81), so
 # setuptools is pinned alongside it purely as a codegen-time dependency.
-grpcio-tools==1.59.0
-setuptools<81
+grpcio-tools==1.83.1
+setuptools<85
 
 aiokafka==0.12.0
 pytest==8.4.2
